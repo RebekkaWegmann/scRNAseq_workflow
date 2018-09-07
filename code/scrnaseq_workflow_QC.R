@@ -96,7 +96,7 @@ plot_RNA_QC = function(input_sce, min_genes, min_UMI){
 # Plotting mitochondrial gene QC
 plot_MT_QC = function(sce, t){
   par(mfrow=c(1,1))
-  mt_genes.amount = sce$pct_counts_feature_controls_MT 
+  mt_genes.amount = sce$pct_counts_MT 
   #mt gene content per cell
   plot(seq(length(mt_genes.amount)),(mt_genes.amount),pch=10,cex=1.5,col="gray",main=""
        , cex.axis=2,cex.lab=1.5,xlab="cell index",ylab="Ratio of MT-genes[%]")
@@ -104,10 +104,10 @@ plot_MT_QC = function(sce, t){
   abline(h=t,col="red",lty=2,cex=5)
   
   #UMI vs no. genes colored by mt gene content
-  plotPhenoData(sce, aes_string(x = "log2(total_features)",
-                                y = "log2(total_counts)",
-                                colour = "pct_counts_feature_controls_MT"))+
-    xlab("Total detected features [log2]") + ylab("Total counts [log2]")+
+  plotColData(sce, x = "log10_total_features_by_counts",
+                                y = "log10_total_counts",
+                                colour_by = "pct_counts_MT")+
+    xlab("Total detected features [log10]") + ylab("Total counts [log10]")+
     ggtitle("Total features vs. total counts, colored by MT content")
 }
 

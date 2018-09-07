@@ -19,10 +19,10 @@ On this example dataset (400 cells), running the complete workflow took ~5-10min
 First: There are a lot of dependencies in this workflow. Downloading and installing all of them will take time. How long exactly the installation will take depends on how many of the basic bioconductor packages you already have installed, and on your internet connection. For me, setting up the complete environment from scratch took around 4-6 hours.
 
 ### R and Bioconductor version
-Some of the bioconductor packages used in this workflow changed drastically between different versions, so that newer versions are no longer compatible with tho old ones. Therfore, please make sure your **R version is 3.4.1** and your **Bioconductor version is 3.5**. To install a specific version of bioconductor, run the following:
+Some of the bioconductor packages used in this workflow changed drastically between different versions, so that newer versions are no longer compatible with tho old ones. Therfore, please make sure your **R version is 3.5.1** and your **Bioconductor version is 3.7**. To install a specific version of bioconductor, run the following:
 
 ```{r, eval = F}
-install.packages("BiocInstaller", repos="http://bioconductor.org/packages/3.5/bioc")
+install.packages("BiocInstaller", repos="http://bioconductor.org/packages/3.7/bioc")
 library(BiocInstaller)
 ```
 
@@ -33,6 +33,11 @@ Lastly, installing packages from github requires the devtools package:
 
 ```{r, eval = F}
 install.packages("devtools")
+
+# on Windows, you might need to run this in case devtools does not find Rtools 3.5:
+library(devtools)
+assignInNamespace("version_info", c(devtools:::version_info, list("3.5" = list(version_min = "3.3.0", version_max = "99.99.99", path = "bin"))), "devtools")
+find_rtools() # is TRUE now
 ```
 
 ### Required packages
@@ -56,7 +61,7 @@ biocLite("scran") # scran v. 1.4.5
 
 #### Genome annotation (human)
 ```{r, eval=F}
-# ensembldb 2.0.4 and EnsDb.Hsapiens.v79 2.1.0
+# ensembldb 2.4.1 and EnsDb.Hsapiens.v86 2.99.0
 biocLite(c("ensembldb","EnsDb.Hsapiens.v86"))
 # org.Hs.eg.db v. 3.4.1
 biocLite("org.Hs.eg.db")
@@ -64,7 +69,7 @@ biocLite("org.Hs.eg.db")
 
 #### Genome annotation (mouse)
 ```{r, eval=F}
-# ensembldb 2.0.4 and EnsDb.Mmusculus 2.1.0
+# ensembldb 2.4.1 and EnsDb.Mmusculus 2.99.0
 biocLite(c("ensembldb","EnsDb.Mmusculus.v79"))
 # org.Mm.eg.db v. 3.4.1
 biocLite("org.Mm.eg.db")
@@ -72,7 +77,7 @@ biocLite("org.Mm.eg.db")
 
 #### Feature selection
 ```{r,eval = F}
-# M3Drop version 3.05.00 (Note: This is still under active development, please let me know if a new version breaks my functions...)
+# M3Drop version 3.09.00 (Note: This is still under active development, please let me know if a new version breaks my functions...)
 devtools::install_github("tallulandrews/M3D")
 ```
 
@@ -86,8 +91,8 @@ install.packages(c("mclust","mvtnorm")) # mclust v. 5.4 and mvtnorm 1.0.6
 install.packages("dynamicTreeCut") # dynamicTreeCut v. 1.63-1 
 
 biocLite("SC3") # SC3 v. 1.4.2
-devtools::install_github("satijalab/seurat") #Seurat 2.0.1
-bioclite("pcaMethods") # pcaMethods 1.68.0, dependency of pcaReduce
+devtools::install_github("satijalab/seurat") #Seurat 2.0.1, fails to install on win
+biocLite("pcaMethods") # pcaMethods 1.68.0, dependency of pcaReduce
 devtools::install_github('JustinaZ/pcaReduce') #pcaReduce 1.0
 ```
 
@@ -166,7 +171,7 @@ library_calls()
 ## Preparing the data
 For this example, we will use a subset of a publicly available dataset from 10X genomics. The original dataset contains ~4500 Peripheral Blood Mononuclear Cells (PBMCs). The raw data can be downloaded [here](http://cf.10xgenomics.com/samples/cell-exp/2.0.1/pbmc4k/pbmc4k_raw_gene_bc_matrices.tar.gz). To make this vignette run in a reasonable amount of time, the example dataset (example_data/pbmc_example_counts.txt) was created from the raw data by randomly sampling 400 cells.
 
-In this first part, we will read the count matrix, annotate the cells and genes, and construct an SCESet that contains the count data as well as all the metadata:
+In this first part, we will read the count matrix, annotate the cells and genes, and construct a SingleCellExperiment object that contains the count data as well as all the metadata:
 
 ```{r,message=T,eval=T}
 # Read the dataset
@@ -180,35 +185,35 @@ counts = counts[keep_feature,]
 # Here, we do not have any such information, so we just give each cell a name
 # Note that the rownames of this table have to correspond to the column names
 # of the count matrix.
-annot = data.frame(cell_idx=paste0("pbmc_C",seq(dim(counts)[2])))
-rownames(annot) = colnames(counts)
-pd = new("AnnotatedDataFrame", data=annot)
+cell_annotation = data.frame(cell_idx=paste0("pbmc_C",seq(dim(counts)[2])))
+rownames(cell_annotation) = colnames(counts)
 
 # get gene annotations from ensembldb
 # optional: get gene descriptions from org.Hs.eg.db (slows down the process a lot!)
 # NOTE: the output of get_gene_annotations is a data.table sorted by gene identifier.
 #       This means the genes are no longer in the same order as in the count matrix!
-geneName = get_gene_annotations(rownames(counts),organism = "human",get_descriptions = F)
+gene_annotations = get_gene_annotations(rownames(counts),organism = "human",get_descriptions = F)
 
 # convert this to feature metadata
-fd_table = as.data.frame(geneName)
-rownames(fd_table) = geneName$gene_id
-fd_table = fd_table[rownames(counts),]
-fd = new("AnnotatedDataFrame",data=fd_table)
+feature_annotation = as.data.frame(gene_annotations)
+rownames(feature_annotation) = gene_annotations$gene_id
+feature_annotation = feature_annotation[rownames(counts),]
 
-#construct SCESet
-sce = newSCESet(countData = counts, phenoData=pd,featureData = fd)
+#construct SingleCellExperiment object
+sce =SingleCellExperiment(assays = list(counts = as.matrix(counts), logcounts=log2(as.matrix(counts)+1)),
+                          colData = cell_annotation,
+                          rowData = feature_annotation)
 
 ```
 
 Note that the `get_gene_annotations` function expects the gene identifiers to be ensembl IDs. Also, currently, only annotations for human and mouse genes are supported.
 
 ## Quality control
-We will use scater to calculate various QC metrics. See the [package vignette](https://bioconductor.org/packages/3.5/bioc/vignettes/scater/inst/doc/vignette.html) for details. Then, we use the cyclone function in scran to assign cell cycle phases. Since this takes fairly long for larger datasets, we save the SCESet afterwards so we can just load it and continue the analysis at some later time. 
+We will use scater to calculate various QC metrics. See the [package vignette](https://bioconductor.org/packages/3.7/bioc/vignettes/scater/inst/doc/vignette.html) for details. Then, we use the cyclone function in scran to assign cell cycle phases. Since this takes fairly long for larger datasets, we save the SCESet afterwards so we can just load it and continue the analysis at some later time. 
 
 ```{r,eval=T}
 #calculate QC metrics
-sce = calculateQCMetrics(sce,feature_controls = list(MT=which(fData(sce)$chr=="MT")))
+sce = calculateQCMetrics(sce,feature_controls = list(MT=which(rowData(sce)$chr=="MT")), compact = FALSE)
 
 # assign cell cycle phase (based on the method from scran)
 # because PBMCs are post-mitotic, most cells should be assigned to G0/G1 phase
@@ -236,10 +241,10 @@ print(p1)
 
 As expected, we mostly find ribosomal proteins and core metabolic genes among the top 50 genes.
 
-Using a slightly modified version of the scater function, we can also make a similar plot for the absolute raw expression values per gene:
+By setting as_percentage to false, we can also make a similar plot for the absolute raw expression values per gene (this looks buggy to me?):
 
 ```{r}
-p1.2 = custom_plotHighestExprs(sce,feature_names_to_plot = "symbol")
+p1.2 = plotHighestExprs(sce,feature_names_to_plot = "symbol",as_percentage=F,exprs_values = "logcounts", colour_cells_by=c("total_features_by_counts"))
 p1.2 = p1.2 + xlab("Expression [raw counts, log2]")
 print(p1.2)
 
@@ -268,7 +273,7 @@ If we check for the total number of zero counts, we see that over 90% of all cou
 Scater also includes some functions that help to identify possible confounding factors. For example, a known widespread bias in scRNASeq experiments is the total number of features detected per cell:
 
 ```{r}
-p3 = plotQC(sce, type="find", variable="total_features") 
+p3 = plotQC(sce, type="find-pcs", variable="total_features_by_counts")
 print(p3 + ggtitle("Correlation of principal components with total detected features."))
 ```
 
@@ -282,7 +287,7 @@ print(p3.2+ggtitle("Correlation of principal components with cell cycle phase.")
 Lastly, scater includes a function that determines the amount of variance explained by possible confounding factors:
 
 ```{r}
-vars = c("total_counts","total_features","cell_cycle_phase")
+vars = c("total_counts","total_features_by_counts","cell_cycle_phase")
 p4 = plotQC(sce, type="expl", variables=vars)
 print(p4 + ggtitle("Percentage of explained variance"))
 ```
@@ -315,7 +320,7 @@ Now that we are happy with the thresholding, we can filter the cells:
 
 ```{r}
 sce$keep_manual = (   !cell_filter_by_feature_count(counts(sce),2^min_genes) &
-                      !cell_filter_by_total_UMI(counts(sce),2^min_UMI) &                                !cell_filter_by_mt_content(sce$pct_counts_feature_controls_MT,mt_threshold))
+                      !cell_filter_by_total_UMI(counts(sce),2^min_UMI) &                                !cell_filter_by_mt_content(sce$pct_counts_MT,mt_threshold))
 
 table(sce$keep_manual)
 
@@ -339,40 +344,10 @@ min_counts = 2
 
 keep_feature = !(gene_filter_by_feature_count(counts(sce_clean),n_th, min_counts))
 sce_clean = sce_clean[keep_feature,]
-```
 
-Finally, we use scaters automatic outlier detection feature to flag and/or remove any additional outlier cells:
-
-```{r}
-
-sce_clean = calculateQCMetrics(sce_clean,feature_controls = list(MT=which(fData(sce_clean)$chr=="MT")))
-
-# The variables used to detect outliers
-vars = c( "pct_counts_top_100_features", 
-          "total_features", "pct_counts_feature_controls", 
-           "log10_counts_endogenous_features", 
-           "log10_counts_feature_controls")
-
-sce_clean = plotPCA(sce_clean,
-                    size_by = "total_features", 
-                    pca_data_input = "pdata",
-                    selected_variables = vars,
-                    detect_outliers = TRUE,
-                    return_SCESet = TRUE)
-
-table(sce_clean$outlier)
-
-#here, we remove the outliers
-sce_clean = sce_clean[,!sce_clean$outlier]
-
-# Finally, we again remove genes that are not expressed
-keep_feature = !(gene_filter_by_feature_count(counts(sce_clean),n_th,min_counts))
-sce_clean = sce_clean[keep_feature,]
-
+sce_clean = calculateQCMetrics(sce_clean,feature_controls = list(MT=which(rowData(sce_clean)$chr=="MT")))
 save(sce_clean, file = file.path(out_data_dir,"sce_clean.RData"))
 ```
-
-In this case, PC1 can be interpreted as "RNA content", whereas PC2 is dominated by metrics describing diversity.
 
 To visualize the raw data, we can make a PCA plot using `my_plot_PCA`. For a detailed description of all parameters of this function, check the [function documentation](#miscellaneous-plotting). For very large datasets, it is a good idea to set `use_irlba=TRUE`. This will then use `prcomp_irlba` to perform an approximate calculation of the first couple of principal components, which is much faster than PCA.
 

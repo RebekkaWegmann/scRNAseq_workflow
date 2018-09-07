@@ -332,112 +332,6 @@ generic_scatterplot = function(dt, x_col, y_col,
   return(p)
 }
 
-# The following functions are modified from scater / SC3
-
-# Custom plotHighest expression
-# This function is a modified version of the plotHighestExpression function from scater
-custom_plotHighestExprs = function (object, col_by_variable = "total_features", n = 50, 
-                                    drop_features = NULL, exprs_values = "counts", feature_names_to_plot = NULL
-) 
-{
-  if (!(col_by_variable %in% colnames(pData(object)))) {
-    warning("col_by_variable not found in pData(object).\\n             Please make sure pData(object)[, variable] exists. Colours will not be plotted.")
-    plot_cols <- FALSE
-  }
-  else plot_cols <- TRUE
-  x <- pData(object)[, col_by_variable]
-  typeof_x <- scater:::.getTypeOfVariable(object, col_by_variable)
-  if (!(is.null(drop_features) | length(drop_features) == 0)) {
-    if (is.character(drop_features)) 
-      drop_features <- which(rownames(object) %in% drop_features)
-    if (is.logical(drop_features)) 
-      object <- object[!drop_features, ]
-    else object <- object[-drop_features, ]
-  }
-  if (!is.null(fData(object)$is_feature_control)) 
-    object <- calculateQCMetrics(object, feature_controls = fData(object)$is_feature_control)
-  else object <- calculateQCMetrics(object)
-  exprs_values <- match.arg(exprs_values, c("exprs", "tpm", 
-                                            "cpm", "fpkm", "counts"))
-  exprs_mat <- get_exprs(object, exprs_values)
-  if (is.null(exprs_mat) && !is.null(counts(object))) {
-    exprs_mat <- counts(object)
-    message("Using counts as expression values.")
-    exprs_values <- "counts"
-  }
-  else if (is.null(exprs_mat)) {
-    exprs_mat <- exprs(object)
-    message("Using exprs(object) values as expression values.")
-    exprs_values <- "exprs"
-  }
-  if (exprs_values == "exprs") 
-    exprs_mat <- 2^exprs_mat - object@logExprsOffset
-  fdata <- fData(object)
-  # if (paste0("total_feature_", exprs_values) %in% colnames(fdata)) 
-  #   oo <- order(fdata[[paste0("total_feature_", exprs_values)]], 
-  #               decreasing = TRUE)
-  # else {
-  #   if ("total_feature_counts" %in% colnames(fdata)) {
-  #     oo <- order(fdata[["total_feature_counts"]], decreasing = TRUE)
-  #     exprs_values <- "counts"
-  #     message("Using counts to order total expression of features.")
-  #   }
-  #   else {
-  #     exprs_values <- "exprs"
-  #     oo <- order(fdata[["total_feature_exprs"]], decreasing = TRUE)
-  #     message("Using 'exprs' to order total expression of features.")
-  #   }
-  # }
-  
-  oo <- order(fdata[["total_feature_counts"]],decreasing=T)
-  fdata$mean = log2(fdata[["total_feature_counts"]]/dim(object)[2])
-  
-  if (is.null(feature_names_to_plot) || is.null(fData(object)[[feature_names_to_plot]])) 
-    fdata$feature <- factor(featureNames(object), levels = featureNames(object)[rev(oo)])
-  else fdata$feature <- factor(fData(object)[[feature_names_to_plot]], 
-                               levels = fData(object)[[feature_names_to_plot]][rev(oo)])
-  fdata$Feature <- fdata$feature
-  if (is.null(fdata$is_feature_control)) 
-    fdata$is_feature_control <- rep(FALSE, nrow(fdata))
-  total_exprs <- sum(exprs_mat)
-  total_feature_exprs <- fdata[[paste0("total_feature_", exprs_values)]]
-  top50_pctage <- 100 * sum(total_feature_exprs[oo[1:n]])/total_exprs
-  df_pct_exprs_by_cell <-log2(t(exprs_mat[oo[1:n], ]+1))
-  df_pct_exprs_by_cell_long <- reshape2::melt(df_pct_exprs_by_cell)
-  df_pct_exprs_by_cell_long$Feature <- fdata[as.character(df_pct_exprs_by_cell_long$Var2), 
-                                             "feature"]
-  df_pct_exprs_by_cell_long$Var2 <- factor(df_pct_exprs_by_cell_long$Var2, 
-                                           levels = rownames(object)[rev(oo[1:n])])
-  df_pct_exprs_by_cell_long$Feature <- factor(df_pct_exprs_by_cell_long$Feature, 
-                                              levels = fdata$feature[rev(oo[1:n])])
-  if (typeof_x == "discrete") 
-    df_pct_exprs_by_cell_long$colour_by <- factor(x)
-  else df_pct_exprs_by_cell_long$colour_by <- x
-  plot_most_expressed <- ggplot(df_pct_exprs_by_cell_long, 
-                                aes_string(y = "Feature", x = "value", colour = "colour_by")) + 
-    geom_point(alpha = 0.6, shape = 124) + ggtitle(paste0("Top ", 
-                                                          n, " account for ", format(top50_pctage, digits = 3), 
-                                                          "% of total")) + ylab("Feature") + xlab("log2(counts+1)") +
-    theme_bw(8) + theme(legend.position = c(1, 
-                                            0), legend.justification = c(1, 0), axis.text.x = element_text(colour = "gray35"), 
-                        axis.text.y = element_text(colour = "gray35"), axis.title.x = element_text(colour = "gray35"), 
-                        axis.title.y = element_text(colour = "gray35"), title = element_text(colour = "gray35"))
-  if (typeof_x == "discrete") {
-    plot_most_expressed <- scater:::.resolve_plot_colours(plot_most_expressed, 
-                                                          df_pct_exprs_by_cell_long$colour_by, col_by_variable)
-  }
-  else {
-    plot_most_expressed <- plot_most_expressed + scale_colour_gradient(name = col_by_variable, 
-                                                                       low = "lightgoldenrod", high = "firebrick4", space = "Lab")
-  }
-  
-  plot_most_expressed + geom_point(aes_string(x = "mean", 
-                                              y = "Feature", fill = "is_feature_control"), 
-                                   data = fdata[oo[1:n], ], colour = "gray30", shape = 21) + 
-    scale_fill_manual(values = c("aliceblue", "wheat")) + 
-    guides(fill = guide_legend(title = "Feature control?"))
-}
-
 # Function to launch the marker_vis shiny app (pre-alpha version and very buggy...)
 launch_marker_vis_app = function(tsne,sce,marker_idx){
   plot_dt = data.table(tSNE1=tsne$Y[,1],tSNE2=tsne$Y[,2],
@@ -446,6 +340,8 @@ launch_marker_vis_app = function(tsne,sce,marker_idx){
   assign("plot_dt",plot_dt,.GlobalEnv)
   runApp(file.path(code_dir,'marker_vis_app'))
 }
+
+# The following functions are modified from scater / SC3
 
 ## Custom version of the sc3_plot_markers function, taken from the SC3 package
 custom_sc3_plot_markers = function (object, k, auroc = 0.85, p.val = 0.01, show_pdata = NULL, order_dend = F) 

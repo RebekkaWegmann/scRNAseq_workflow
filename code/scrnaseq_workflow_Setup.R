@@ -58,8 +58,8 @@ get_gene_annotations = function(gene_list,v=F,get_descriptions=T,organism = "hum
     library(EnsDb.Hsapiens.v86)
     edb = EnsDb.Hsapiens.v86
   } else if(organism == "mouse"){
-    library(EnsDb.Mmusculus.v75)
-    edb = EnsDb.Mmusculus.v75
+    library(EnsDb.Mmusculus.v79)
+    edb = EnsDb.Mmusculus.v79
   } else {stop("Currently, annotation is only available for organisms human or mouse.")}
   
   my_get = function(x,db,v){
