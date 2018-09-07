@@ -519,11 +519,11 @@ Before we try any of the methods, we do a quick and dirty annotation of the four
 b_cell = t(norm_exprs(sce_info["ENSG00000156738",]))
 colnames(b_cell) = "B-cell"
 
-monocyte = data.frame(Monocyte = colSums(norm_exprs(sce_info)[which(fData(sce_info)$symbol %in% c('CD14','LYZ','FCGR3A','MS4A7')),]))
+monocyte = data.frame(Monocyte = colSums(norm_exprs(sce_info)[which(rowData(sce_info)$symbol %in% c('CD14','LYZ','FCGR3A','MS4A7')),]))
 
-t_cell = data.frame(`T-cell` = colSums(norm_exprs(sce_info)[which(fData(sce_info)$symbol %in% c('CD3E','CD3D','CD3G')),]))
+t_cell = data.frame(`T-cell` = colSums(norm_exprs(sce_info)[which(rowData(sce_info)$symbol %in% c('CD3E','CD3D','CD3G')),]))
 
-nk_cell = data.frame(`NK cell` = colSums(norm_exprs(sce_info)[which(fData(sce_info)$symbol %in% c('GNLY','NKG7')),]))
+nk_cell = data.frame(`NK cell` = colSums(norm_exprs(sce_info)[which(rowData(sce_info)$symbol %in% c('GNLY','NKG7')),]))
 
 # Make plots
 # Note that by providing the tsne input variable instead of counts,

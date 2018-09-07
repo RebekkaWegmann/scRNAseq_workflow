@@ -134,7 +134,9 @@ run_DANB = function(counts,save_plot=T,method="NBDrop",cutoff=NULL, perc_genes =
   
   if(method=="NBDrop"){
     NBumiCheckFitFS(counts,fit,suppress.plot = T) #check whether the fitted droout rates are well correlated with observed ones (i.e. number of zeroes)
-    pvals = NBumiFeatureSelectionCombinedDrop(fit) #ranks genes by difference from expected dropout rates
+    selection = NBumiFeatureSelectionCombinedDrop(fit) #ranks genes by difference from expected dropout rates
+    pvals = selection$q.value
+    names(pvals) = selection$Gene
     
     if(is.null(cutoff)){ cutoff = sort(pvals)[as.integer(perc_genes/100*length(pvals))]}
     
