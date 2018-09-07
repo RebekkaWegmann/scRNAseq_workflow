@@ -44,7 +44,8 @@ normalize_counts = function(sce,method = "scran"){
              warning("Negative size factors generated. Most likely, this is due to some cells having very low total feature counts. Consider using more stringent QC cutoffs.")
            }
          }
-         sce = scater::normalize(sce, return_norm_as_exprs=T)}
+         sce = scater::normalize(sce)
+         norm_exprs(sce) = logcounts(sce)}
   )
   return(sce)  
 }

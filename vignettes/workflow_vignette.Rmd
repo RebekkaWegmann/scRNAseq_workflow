@@ -356,7 +356,7 @@ Because the counts are spread over several orders of magnitude, it is generally 
 ```{r}
 p = my_plot_PCA(counts = log2(counts(sce_clean)+1),
                 scale_pca = T, center_pca = T, return_pca = F, use_irlba=F,
-                color = pData(sce_clean)[,"total_features",drop=F])
+                color = colData(sce_clean)[,"total_features_by_counts",drop=F])
 p = p+ggtitle("PCA on raw log2(counts)")
 print(p)
 ```
@@ -368,7 +368,7 @@ Alternatively, we can make a tSNE projection of the log2-transformed counts usin
 ```{r}
 p = my_plot_tSNE(counts = log2(counts(sce_clean)+1),
                  is_distance = F, scale_pca = F, n_comp = 50, return_tsne=F,
-                 color = pData(sce_clean)[,"total_features",drop=F])
+                 color = colData(sce_clean)[,"total_features_by_counts",drop=F])
 p = p+ggtitle("t-SNE on raw log2(counts)")
 print(p)
 ```
