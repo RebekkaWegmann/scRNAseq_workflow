@@ -19,8 +19,8 @@
 # Inputs for the different functions:
 # - sce = the SCESet after QC or after normalization
 # - cl_id : the name of the grouping (e.g. "mclust") used in the comparison. Must be
-#   a column name of pData(sce)
-# - cl_ref: the entry in pData(sce)$cl_id that should be used as the reference,
+#   a column name of colData(sce)
+# - cl_ref: the entry in colData(sce)$cl_id that should be used as the reference,
 #   i.e. against which all the rest of the cells are compared
 # - alpha = false discovery rate cutoff, default = 0.05
 # - fc_cutoff = log2 fold change cutoff, default = 0.5
@@ -39,10 +39,10 @@ run_wilcoxon_test = function(sce,cl_id,cl_ref,
   
   if(!is.null(pseudocount)){warning("The pseudocount argument is deprecated and will be removed!")}
   
-  ignore = is.na(pData(sce)[,cl_id])
+  ignore = is.na(colData(sce)[,cl_id])
   sce = sce[,!ignore] 
   
-  in_clust = pData(sce)[,cl_id] %in% cl_ref
+  in_clust = colData(sce)[,cl_id] %in% cl_ref
   pvals = apply(norm_exprs(sce),1,
                 function(x) wilcox.test(x=x[in_clust],y=x[!in_clust])$p.value)
   fc = apply(norm_exprs(sce),1,
@@ -69,22 +69,22 @@ run_limma = function(sce,cl_id,cl_ref,
     stop("Method has to be either \"voom\" or \"trend\".")
   }
   
-  ignore = is.na(pData(sce)[,cl_id])
+  ignore = is.na(colData(sce)[,cl_id])
   sce = sce[,!ignore] 
   
-  res = as.factor(pData(sce)[,cl_id] %in% cl_ref)
+  res = as.factor(colData(sce)[,cl_id] %in% cl_ref)
   design = model.matrix(~0+res)
   colnames(design) = c("Rest","Cluster")
   rownames(design) = colnames(sce)
   
   # filter out genes not detected at a count of count-thr in at least
   # 50% of cells in at least one cluster. Outlier cells (clusters with only one cell) are ignored.
-  clust_sizes = table(pData(sce)[,cl_id])
+  clust_sizes = table(colData(sce)[,cl_id])
   clusts = names(clust_sizes[which(clust_sizes>1)])
   
   keep_mat = matrix(rep(NA,dim(sce)[1]*length(clusts)),ncol = length(clusts))
   for(i in seq(length(clusts))){
-    keep_mat[,i] = rowSums(counts(sce)[,pData(sce)[,cl_id]==clusts[i]]>=count_thr)>=pct/100*length(which(pData(sce)[,cl_id]==clusts[i]))  
+    keep_mat[,i] = rowSums(counts(sce)[,colData(sce)[,cl_id]==clusts[i]]>=count_thr)>=pct/100*length(which(colData(sce)[,cl_id]==clusts[i]))  
   }
   keep = apply(keep_mat, 1, function(x) any(x))
   
@@ -125,13 +125,13 @@ run_MAST = function(sce,cl_id,cl_ref,n_cores = 8,nbins=10,min_per_bin=30,
   
   library(MAST)
   
-  ignore = is.na(pData(sce)[,cl_id])
+  ignore = is.na(colData(sce)[,cl_id])
   sce = sce[,!ignore] 
   
   options(mc.cores = n_cores)
   if(norm){
-    sca = FromMatrix(norm_exprs(sce), pData(sce), fData(sce))} else {
-      sca = FromMatrix(log2(counts(sce)+1), pData(sce), fData(sce))
+    sca = FromMatrix(norm_exprs(sce), colData(sce), rowData(sce))} else {
+      sca = FromMatrix(log2(counts(sce)+1), colData(sce), rowData(sce))
     }
   # adaptive thresholding
   # note how the threshold moves with median expression
@@ -155,7 +155,7 @@ run_MAST = function(sce,cl_id,cl_ref,n_cores = 8,nbins=10,min_per_bin=30,
   colData(sca)$condition=cond
   # calculate the cellular detection rate as no. detected features / no. total features
   # and center it 
-  colData(sca)$cngeneson = scale(pData(sce)$total_features/dim(sce)[1],scale=F)
+  colData(sca)$cngeneson = scale(colData(sce)$total_features/dim(sce)[1],scale=F)
   # fit model (note that this will take time for large datasets!!)
   message("Fitting models...")
   zlmCond = zlm(~condition + cngeneson, sca)

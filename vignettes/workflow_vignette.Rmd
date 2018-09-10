@@ -1160,7 +1160,7 @@ table(de_wilcox$DE_flag)
 A useful way to check whether the method was biased towards calling genes in a specific expression range DE is to plot log2 fold changes v.s. the mean expression of a gene. We will add the mean_exprs column in the feature metadata to the `de_wilcox` table by using `merge` from the `data.table` package:
 
 ```{r}
-mean_exprs_dt = data.table(gene_id = rownames(sce_clean),mean_exprs = fData(sce_clean)$mean_exprs)
+mean_exprs_dt = data.table(gene_id = rownames(sce_clean),mean_exprs = rowMeans(norm_exprs(sce_clean)))
 de_wilcox = merge(de_wilcox,mean_exprs_dt, by = "gene_id")
 names(de_wilcox)
 ```
@@ -1315,7 +1315,7 @@ de_MAST = run_MAST(sce_clean,cl_id = "hclust_eucl",cl_ref = "B-cell",norm=T,
                    set_thresh=F,fc_cutoff = 1, alpha=0.5)
 ```
 
-Again, let's make a plot and compare to limma-trend and DESeq2:
+Again, let's make a plot and compare to limma-trend:
 
 ```{r,fig.width=10}
 de_MAST = merge(de_MAST, mean_exprs_dt)
