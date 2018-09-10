@@ -336,7 +336,7 @@ generic_scatterplot = function(dt, x_col, y_col,
 launch_marker_vis_app = function(tsne,sce,marker_idx){
   plot_dt = data.table(tSNE1=tsne$Y[,1],tSNE2=tsne$Y[,2],
                        t(norm_exprs(sce)[marker_idx,,drop=F]))
-  names(plot_dt)[-c(1,2)] = fData(sce)$symbol[marker_idx]
+  names(plot_dt)[-c(1,2)] = rowData(sce)$symbol[marker_idx]
   assign("plot_dt",plot_dt,.GlobalEnv)
   runApp(file.path(code_dir,'marker_vis_app'))
 }

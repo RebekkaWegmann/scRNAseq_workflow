@@ -91,7 +91,6 @@ install.packages(c("mclust","mvtnorm")) # mclust v. 5.4 and mvtnorm 1.0.6
 install.packages("dynamicTreeCut") # dynamicTreeCut v. 1.63-1 
 
 biocLite("SC3") # SC3 v. 1.4.2
-devtools::install_github("satijalab/seurat") #Seurat 2.0.1, fails to install on win
 biocLite("pcaMethods") # pcaMethods 1.68.0, dependency of pcaReduce
 devtools::install_github('JustinaZ/pcaReduce') #pcaReduce 1.0
 install.packages("MCL") #MCL 1.0
@@ -853,28 +852,6 @@ We note that by raising the similarity cutoff, we can force MCL to make more clu
 
 In conclusion, MCL performs similar to hierearchical clustering. Its main advantage is that it is much faster than hclust and can therefore be used on datasets with ten thousands of cells. The main drawback is that MCL is very sensitive to the provided input. Using a similarity measure that does not appropriately separate cells or using the wrong similarity cutoff will lead to MCL making lots of clusters with just one cell inside. The automated cutoff determination should provide some guidance here, but it is not guaranteed to work in all cases. 
 
-#### Seurat (fails to install on Windows)
-Note: You might have to restart R before trying to load Seurat, because this package alone loads 121 (!) dependencies, which might just crash R. 
-
-We can run the clustering part of seurat by using the `seurat_clustering` wrapper:
-
-```{r,eval = F}
-library(Seurat)
-seurat_assignments = seurat_clustering(sce_info,vars.to.regress=NULL,res=1.2)
-sce_info$seurat = as.factor(seurat_assignments)
-```
-
-And compare the assignments to hclust:
-
-```{r,fig.width=8, eval = F}
-table(sce_info$seurat,sce_info$hclust_eucl)
-p = my_plot_tSNE(tsne = tsne_info, color = pData(sce_info)[,"seurat",drop=F],
-                 shape = pData(sce_info)[,"hclust_eucl",drop=F],
-                 title = "Seurat assignment",show_proportions = T)
-print(p)
-```
-
-In general, I did not find seurat to be more useful than MCL and loading the whole package just for the clustering is a bit of a pain.
 
 ### Density clustering (DBSCAN)
 DBSCAN is a density clustering algorithm that is based on a k-nearest neighbor search. In a nutshell, it identifies clusters as regions in space that contain many points with shared neighbors. DBSCAN works best in a lower dimensional space, so we weill again use the coordinates in PCA space as input. The `run_dbscan` function requires the following inputs:
@@ -1044,7 +1021,7 @@ distribution.
 sce_clean$cell_type = sce_info$cell_type
 cellsius_out = cellsius_main(sce_clean, group_id = "cell_type", min_n_cells = 5,
                                  verbose =T, min_fc = 2, organism = "human", iter=0, 
-                                 max_perc_cells = 50, fc_between_cutoff = 1, mcl_path = mcl_path)
+                                 max_perc_cells = 50, fc_between_cutoff = 1, use_external_mcl = use_external_mcl)
 ```
 
 Because we set verbose to `TRUE`, the function printed a nicely human-readable summary. you can always re-print the summary using `cellsius_print_summary(cellsius_out)`. The same information can also be extracted from the output, let's have a look:
@@ -1108,7 +1085,7 @@ marker_idx = which(rownames(sce_clean)%in%cellsius_out[sub_cluster=='T-cell_1_1'
 
 plotlist = list()
 colors = t(norm_exprs(sce_clean)[marker_idx,,drop=F])
-colnames(colors) =  fData(sce_clean)$symbol[marker_idx]
+colnames(colors) =  rowData(sce_clean)$symbol[marker_idx]
 
 for(i in seq(dim(colors)[2])){
   plotlist[[i]] = my_plot_tSNE(tsne = tsne_info,

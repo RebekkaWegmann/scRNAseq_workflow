@@ -6,7 +6,7 @@
 # _______________________
 #
 # This implements the CellSIUS method. Note that this can also be used with a custom workflow, as long as you provide
-# your data as an SCESet that contains all relevant fields in pData and fData.
+# your data as an SCESet that contains all relevant fields in colData and rowData.
 # 
 # Authors:
 #   Rebekka Wegmann (wegmann@imsb.biol.ethz.ch)
@@ -20,14 +20,18 @@
 
 
 cellsius_main = function(sce,group_id,min_n_cells=10,verbose = T, min_fc = 2,
-                                     organism = "human", corr_cutoff = NULL, iter=0, max_perc_cells = 50,
-                                     fc_between_cutoff = 1, mcl_path = "/da/dmp/cb/prog/mcl-14-137/bin/mcl"){
+                        organism = "human", corr_cutoff = NULL, iter=0, max_perc_cells = 50,
+                        fc_between_cutoff = 1, use_external_mcl=FALSE, mcl_path = "/da/dmp/cb/prog/mcl-14-137/bin/mcl"){
+  
   library(Ckmeans.1d.dp)
+  if(!use_external_mcl){
+    library(MCL)
+  }
   
   expr_dt = data.table(gene_id = rownames(sce),norm_exprs(sce))
   expr_dt_melt = melt(expr_dt,id.vars="gene_id",val="expr",var="cell_idx")
   expr_dt_melt = merge(expr_dt_melt,
-                       data.table(cell_idx=colnames(sce),main_cluster=as.character(pData(sce)[,group_id])),
+                       data.table(cell_idx=colnames(sce),main_cluster=as.character(colData(sce)[,group_id])),
                        by="cell_idx")
   
   #Identify genes with significant bimodal distribution
@@ -62,7 +66,7 @@ cellsius_main = function(sce,group_id,min_n_cells=10,verbose = T, min_fc = 2,
   
   # Identify correlated gene sets with MCL
   expr_dt_melt = expr_dt_melt[,gene_cluster:=0]
-  expr_dt_melt = cellsius_find_gene_sets(expr_dt_melt, corr_cutoff = corr_cutoff, mcl_path=mcl_path)
+  expr_dt_melt = cellsius_find_gene_sets(expr_dt_melt, corr_cutoff = corr_cutoff, use_external_mcl=use_external_mcl, mcl_path=mcl_path)
   
   # discard gene sets that only contain one gene (those are assigned to cluster 0)
   expr_dt_melt = expr_dt_melt[gene_cluster !=0 ]
@@ -176,7 +180,7 @@ cellsius_test_cluster_specificity = function(exprs, cluster, current_cluster, fc
 #####################################################
 
 cellsius_find_gene_sets = function(expr_dt_melt, corr_cutoff = NULL, min_corr = 0.35, max_corr = 0.5,
-                          mcl_path = "/da/dmp/cb/prog/mcl-14-137/bin/mcl"){
+                          use_external_mcl = FALSE, mcl_path = "/da/dmp/cb/prog/mcl-14-137/bin/mcl"){
   library(igraph)
   
   for(clust in unique(expr_dt_melt$main_cluster)){
@@ -205,23 +209,34 @@ cellsius_find_gene_sets = function(expr_dt_melt, corr_cutoff = NULL, min_corr = 
       expr_dt_melt = expr_dt_melt[main_cluster == clust, gene_cluster := 0]
       next
     }
-    
-    graphs = data.frame(graphs,CORR=sapply(seq(dim(graphs)[1]), function(i) corr.mat[graphs$from[i],graphs$to[i]] -corr_cutoff))
-    write.table(graphs, file = "tmp.mcl.inp",row.names=F,col.names=F,sep = " ")
-    system(paste0(mcl_path, " tmp.mcl.inp --abc -o tmp.mcl.out"))
-    x = scan("tmp.mcl.out", what="", sep="\n")
-    y = strsplit(x, "[[:space:]]+")
-    y = lapply(seq(length(y)), function(i){
-      tmp = sapply(seq(length(y[[i]])),function(j){
-        gsub('\"','',y[[i]][j])
-      })
-    })
-    
+     if(use_external_mcl){
+       graphs = data.frame(graphs,CORR=sapply(seq(dim(graphs)[1]), function(i) corr.mat[graphs$from[i],graphs$to[i]] -corr_cutoff))
+       write.table(graphs, file = "tmp.mcl.inp",row.names=F,col.names=F,sep = " ")
+       system(paste0(mcl_path, " tmp.mcl.inp --abc -o tmp.mcl.out"))
+       x = scan("tmp.mcl.out", what="", sep="\n")
+       y = strsplit(x, "[[:space:]]+")
+       y = lapply(seq(length(y)), function(i){
+         tmp = sapply(seq(length(y[[i]])),function(j){
+           gsub('\"','',y[[i]][j])
+         })
+       })
+     } else {
+       mcl_result = mcl(adj.corr, addLoops = TRUE)
+       if(!typeof(mcl_result) == "character"){
+        clusts = mcl_result$Cluster
+        y = sapply(seq(length(unique(clusts))), function(j) rownames(adj.corr)[clusts==j])
+       } else {
+         warning("MCL failed with message: %s", mcl_result)
+         next
+       }
+     }
+       
     for(i in seq(length(y))){
       if(length(y[[i]] > 1)){
         expr_dt_melt = expr_dt_melt[main_cluster==clust & gene_id %in% y[[i]],gene_cluster:=i]
       }
     }
+
   }
   
   return(expr_dt_melt)
@@ -291,7 +306,7 @@ cellsius_final_cluster_assignment = function(rare, sce, group_id, min_n_genes = 
   
   rare[,n_genes:=length(unique(gene_id)),by='sub_cluster']
   
-  assignments = data.table(cell_idx = colnames(sce), pData(sce)[,group_id])
+  assignments = data.table(cell_idx = colnames(sce), colData(sce)[,group_id])
   names(assignments) = c('cell_idx', 'group')
   assignments$group = as.character(assignments$group)
   assignments = merge(assignments, rare[n_genes>=min_n_genes,c('cell_idx','main_cluster','sub_cluster')],by='cell_idx',all=T)

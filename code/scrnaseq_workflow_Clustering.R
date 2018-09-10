@@ -352,39 +352,39 @@ cross_val = function(fold,data,idx,structure,components){
   return(like_test)
 }
 
-#___________________________________________
-# SEURAT
-#___________________________________________
-seurat_clustering = function(sce,vars.to.regress=NULL,res=0.6,n_comp=10){
-  
-  library(Seurat)
-  #make SEURAT object, scale and optionally regress out confounders
-  tmp_seurat = CreateSeuratObject(raw.data = counts(sce))
-  tmp_seurat@data = norm_exprs(sce) #add the normalized values
-  
-  # This next step is a bit of cheating. Seurat expects us to run the complete
-  # workflow on the same object and checks whether data have been normalized
-  # by checking if object@calc.params$NormalizeData$normalization.method exists.
-  # Since we provided normalized values, and do not want to re-run normalization,
-  # we just put a dummy value in that slot.
-  
-  tmp_seurat@calc.params$NormalizeData = list(normalization.method ="dummy")
-  
-  if(!is.null(vars.to.regress)){
-    if(any(!vars.to.regress%in%names(pData(sce)))){
-      stop("Variables to regress out have to be column names in pData(sce)")
-    }
-    tmp_seurat = AddMetadata(object = tmp_seurat, metadata = pData(sce)[,vars.to.regress])
-    tmp_seurat = ScaleData(object = tmp_seurat,vars.to.regress=vars.to.regress)
-  } else {
-    tmp_seurat = ScaleData(object = tmp_seurat)
-  }
-  
-  tmp_seurat = RunPCA(object = tmp_seurat, pc.genes = rownames(sce), do.print = FALSE) 
-  tmp_seurat = FindClusters(object = tmp_seurat, reduction.type = "pca", dims.use = 1:n_comp, 
-                            resolution = res, print.output = 0, save.SNN = TRUE)
-  seurat_assignment = tmp_seurat@ident
-  return(seurat_assignment)
-}
-
+# #___________________________________________
+# # SEURAT
+# #___________________________________________
+# seurat_clustering = function(sce,vars.to.regress=NULL,res=0.6,n_comp=10){
+#   
+#   library(Seurat)
+#   #make SEURAT object, scale and optionally regress out confounders
+#   tmp_seurat = CreateSeuratObject(raw.data = counts(sce))
+#   tmp_seurat@data = norm_exprs(sce) #add the normalized values
+#   
+#   # This next step is a bit of cheating. Seurat expects us to run the complete
+#   # workflow on the same object and checks whether data have been normalized
+#   # by checking if object@calc.params$NormalizeData$normalization.method exists.
+#   # Since we provided normalized values, and do not want to re-run normalization,
+#   # we just put a dummy value in that slot.
+#   
+#   tmp_seurat@calc.params$NormalizeData = list(normalization.method ="dummy")
+#   
+#   if(!is.null(vars.to.regress)){
+#     if(any(!vars.to.regress%in%names(pData(sce)))){
+#       stop("Variables to regress out have to be column names in pData(sce)")
+#     }
+#     tmp_seurat = AddMetadata(object = tmp_seurat, metadata = pData(sce)[,vars.to.regress])
+#     tmp_seurat = ScaleData(object = tmp_seurat,vars.to.regress=vars.to.regress)
+#   } else {
+#     tmp_seurat = ScaleData(object = tmp_seurat)
+#   }
+#   
+#   tmp_seurat = RunPCA(object = tmp_seurat, pc.genes = rownames(sce), do.print = FALSE) 
+#   tmp_seurat = FindClusters(object = tmp_seurat, reduction.type = "pca", dims.use = 1:n_comp, 
+#                             resolution = res, print.output = 0, save.SNN = TRUE)
+#   seurat_assignment = tmp_seurat@ident
+#   return(seurat_assignment)
+# }
+# 
 
