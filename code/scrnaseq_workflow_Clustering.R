@@ -63,8 +63,11 @@ build_adjacency_matrix = function(mat,cutoff="auto", is_similarity = F){
   return(list(adj=adj.corr,cor=corr.cells,cutoff=cutoff))
 }
 
-MCLcell.clust=function(adj_list,selfloop=T,mcl_path = "/da/dmp/cb/prog/mcl-14-137/bin/mcl"){
+MCLcell.clust=function(adj_list,selfloop=T,use_external_mcl=FALSE,mcl_path = "/da/dmp/cb/prog/mcl-14-137/bin/mcl"){
   library(igraph)
+  if(!use_external_mcl){
+    library(MCL)
+  }
   
   adj = adj_list$adj
   corr.cells = adj_list$cor
@@ -75,21 +78,25 @@ MCLcell.clust=function(adj_list,selfloop=T,mcl_path = "/da/dmp/cb/prog/mcl-14-13
   graphs = get.data.frame( graph.adjacency(adj), what = "edges") # gene connection for graphs
   graphs = data.frame(graphs,CORR=sapply(seq(dim(graphs)[1]), function(i) corr.cells[graphs$from[i],graphs$to[i]] -corr.cutoff))
   
-  write.table(graphs, file = "tmp.mcl.inp",row.names=F,col.names=F,sep = " ")
-  message("Running MCL")
-  system(paste0(mcl_path, " tmp.mcl.inp --abc -o tmp.mcl.out"))
-  x = scan("tmp.mcl.out", what="", sep="\n")
-  MCL.cells = strsplit(x, "[[:space:]]+")
-  MCL.cells = lapply(seq(length(MCL.cells)), function(i){
-    tmp = sapply(seq(length(MCL.cells[[i]])),function(j){
-      gsub('\"','',MCL.cells[[i]][j])
+  if(use_external_mcl){
+    write.table(graphs, file = "tmp.mcl.inp",row.names=F,col.names=F,sep = " ")
+    message("Running MCL")
+    system(paste0(mcl_path, " tmp.mcl.inp --abc -o tmp.mcl.out"))
+    x = scan("tmp.mcl.out", what="", sep="\n")
+    MCL.cells = strsplit(x, "[[:space:]]+")
+    MCL.cells = lapply(seq(length(MCL.cells)), function(i){
+      tmp = sapply(seq(length(MCL.cells[[i]])),function(j){
+        gsub('\"','',MCL.cells[[i]][j])
+      })
     })
-  })
-  system("rm tmp.mcl.inp tmp.mcl.out")
-  
-  groups.MCL = matrix(rep(-1,dim(corr.cells)[2]),ncol=1)
-  rownames(groups.MCL) = colnames(corr.cells)
-  for(i in seq(length(MCL.cells))) groups.MCL[MCL.cells[[i]],]=i
+    system("rm tmp.mcl.inp tmp.mcl.out")
+
+    groups.MCL = matrix(rep(-1,dim(corr.cells)[2]),ncol=1)
+    rownames(groups.MCL) = colnames(corr.cells)
+    for(i in seq(length(MCL.cells))) groups.MCL[MCL.cells[[i]],]=i
+  } else {
+    groups.MCL = mcl(adj, addLoops = selfloop)$Cluster
+  }
   
   #if necessary, collapse all clusters containing only 1 cell to a big "unassigned"
   groups.MCL[groups.MCL %in% names(table(groups.MCL)[which(table(groups.MCL)==1)])] = 0

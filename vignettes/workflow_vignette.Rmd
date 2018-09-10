@@ -94,9 +94,10 @@ biocLite("SC3") # SC3 v. 1.4.2
 devtools::install_github("satijalab/seurat") #Seurat 2.0.1, fails to install on win
 biocLite("pcaMethods") # pcaMethods 1.68.0, dependency of pcaReduce
 devtools::install_github('JustinaZ/pcaReduce') #pcaReduce 1.0
+install.packages("MCL") #MCL 1.0
 ```
 
-In addition, an external installation of MCL is required which can be found [here](https://micans.org/mcl/). To install MCL, go to the "License & Software" tab on teh website, and then click on the "Download a a ready-to-install tarball containing the MCL-edge software" link. Then run the following (assuming you downloaded mcl-14-137.tar.gz):
+In addition, on UNIX, an external, faster version of MC can be used which can be found [here](https://micans.org/mcl/). To install MCL, go to the "License & Software" tab on teh website, and then click on the "Download a a ready-to-install tarball containing the MCL-edge software" link. Then run the following (assuming you downloaded mcl-14-137.tar.gz):
 
 ```{r, eval = F, engine = 'bash'}
 tar xzf mcl-14-137.tar.gz
@@ -156,8 +157,11 @@ if(!dir.exists(out_data_dir)) {dir.create(out_data_dir)}
 plotdir = file.path(wd,"example_plots")
 if(!dir.exists(plotdir)) {dir.create(plotdir)}
 
-#path to your MCL binary
-mcl_path = "~/local/bin/mcl"
+#use extrenal MCL? ONLY POSSIBLE ON UNIX
+use_external_mcl=FALSE
+
+#path to your MCL binary (only needed if use_external_mcl = TRUE)
+#mcl_path = "~/local/bin/mcl"
 
 set.seed(17) #to make tSNE plots reproducible
 
@@ -457,7 +461,7 @@ The `run_DANB` function is a wrapper to both NBDrop and NBDisp methods that are 
 To modify the number of genes selected, you can either set the `cutoff` variable, which is a p-value cutoff for NBDrop, or set `perc_genes`, in which case the top `perc_genes` percentage of genes will be chosen.
 
 ```{r}
-info_NBdrop = run_DANB(counts(sce_clean),method = "NBDrop",save_plot=F, cutoff = 0.1) 
+info_NBdrop = run_DANB(counts(sce_clean),method = "NBDrop",save_plot=F, perc_genes=10) 
 info_NBdisp = run_DANB(counts(sce_clean),method = "NBDisp",save_plot=F, perc_genes = 10) 
 table(info_NBdrop,info_NBdisp)
 
@@ -538,13 +542,13 @@ ggmultiplot(p1,p2,p3,p4,cols=2)
 
 ```{r}
 assignment = data.table(tsne1 = tsne_info$Y[,1], tsne2 = tsne_info$Y[,2],cell_type = 'T-cell')
-assignment[tsne1 < -10 ,cell_type:='B-cell']
-assignment[tsne1 > 5 ,cell_type:='Monocyte']
-assignment[tsne2 < -15 & tsne1 > 1,cell_type:='NK Cell']
+assignment[tsne1 < -10 ,cell_type:='Monocyte']
+assignment[tsne2 > 13 ,cell_type:='B-cell']
+assignment[tsne2 < -16 & tsne1 > 5,cell_type:='NK Cell']
 
 sce_info$cell_type = assignment$cell_type
 
-p = my_plot_tSNE(tsne = tsne_info, color = pData(sce_info)[,"cell_type",drop=F])
+p = my_plot_tSNE(tsne = tsne_info, color = colData(sce_info)[,"cell_type",drop=F])
 print(p+labs(title="t-SNE on informative genes",subtitle = "Colored by manual cell annotation"))
 
 ```
@@ -569,20 +573,22 @@ library(SC3)
 
 ```{r,eval=T}
 library(SC3)
-sce_info = sc3_prepare(sce_info, ks = 2:10, n_cores = 4)
+#newer versions of sc3 require that there is a feature_symbol attribute for each gene. Let's quick fix and put the symbol slot there:
+rowData(sce_info)$feature_symbol = rowData(sce_info)$symbol 
+sce_info = sc3_prepare(sce_info, n_cores = 4)
 ```
 
 Next, we let SC3 determine the best number of clusters to use. For a detailed description on how the number of clusters is chosen, see the methods section of the [paper](http://www.nature.com/nmeth/journal/v14/n5/full/nmeth.4236.html?foxtrotcallback=true) 
 
 ```{r,eval=T}
 sce_info = sc3_estimate_k(sce_info)
-sce_info@sc3$k_estimation
+str(metadata(sce_info)$sc3)
 ```
 
-And now we run SC3 using 6 clusters. Setting biology = TRUE tells SC3 that it should calculate biological properties of the clusters:
+And now we run SC3 using 5 clusters. Setting biology = TRUE tells SC3 that it should calculate biological properties of the clusters:
 
 ```{r,eval=T}
-sce_info = sc3(sce_info, ks = 6, biology = TRUE, n_cores = 4)
+sce_info = sc3(sce_info, ks = 5, biology = TRUE, n_cores = 4)
 ```
 
 Note: If your dataset contains more than 5000 cells, SC3 will automatically switch to the "hybrid SVM" version of the algorithm. In that case, skip the above and run the following instead:
@@ -607,7 +613,7 @@ rm(plot_sce)
 SC3 also has a couple of nice visualization functions. For example, we can plot the consensus matrix:
 
 ```{r, out.width="110%",fig.height=4}
-sc3_plot_consensus(sce_info, k=6)
+sc3_plot_consensus(sce_info, k=5)
 ```
 
 In this plot, a value of 1 means the cells are always together in the same cluster. A value of 0 means they are never in the same cluster. Values in between indicate that it is not so clear where the cell belongs.
@@ -615,36 +621,36 @@ In this plot, a value of 1 means the cells are always together in the same clust
 We can also make a heatmap of gene expression. With the show_pdata parameter, we can add any column in pData sce to annotate the cells:
 
 ```{r, out.width="110%",fig.height=4}
-sc3_plot_expression(sce_info, k = 6, show_pdata = c("cell_type"))
+sc3_plot_expression(sce_info, k = 5, show_pdata = c("cell_type"))
 ```
 
 Because we set biology to TRUE, SC3 determined marker genes for each cluster. We can have a look at them here (NOTE: use the custom version of the `sc3_plot_markers` function if you used the hybrid SVM approach!):
 
 ```{r, out.width="110%",fig.height=6}
 # change the plotted gene names to symbol for better readability
-plot_sce = sce_info
-rownames(plot_sce) = fData(plot_sce)$symbol
-sc3_plot_markers(plot_sce, k=6, p.val = 0.01, auroc = 0.90, show_pdata = c("cell_type"))
+plot_sce = sce_info[!is.na(rowData(sce_info)$feature_symbol),]
+rownames(plot_sce) = rowData(plot_sce)$symbol
+
+sc3_plot_markers(plot_sce, k=5, p.val = 0.1, auroc = 0.80, show_pdata = c("cell_type")) 
 
 # for hybrid SVM approach:
-# custom_sc3_plot_markers(plot_sce, k=6, p.val = 0.01, auroc = 0.90)
+# custom_sc3_plot_markers(plot_sce, k=5, p.val = 0.01, auroc = 0.90) #need to fix for new version
 ```
 
 In this plot, we see that SC3 correctly identified known markers for the different cell types. In addition, we see that there are 2 larger groups among the T-cells. Checking the marker expression, we find that cluster 4 (high CCL5 and IL32) corresponds to CD8+ cytotoxic T-cells, whereas the remaining T-cells likely are T helper cells, although we did not find the characteristic CD4 marker. Cluster 2 remains unlabeled. We can visualize our assignment on the t-SNE map. Setting `show_proprtions=T` adds the relative number of cells per cluster to the legend:
 
 ```{r}
-assignment = data.table(clust = sce_info$sc3_6_clusters, cell_type = sce_info$cell_type)
-assignment[clust == 1, cell_type:= 'T helper cell']
+assignment = data.table(clust = sce_info$sc3_5_clusters, cell_type = sce_info$cell_type)
+assignment[clust == 1, cell_type:= 'CD4 T-cell']
 assignment[clust == 2, cell_type:= 'Monocyte']
-assignment[clust==3,cell_type:='?']
-assignment[clust==4,cell_type:='CD8+ T-cell']
-assignment[clust==5,cell_type:='NK cell']
-assignment[clust == 6, cell_type:= 'B-cell']
+assignment[clust==3,cell_type:='CD8 T-cell']
+assignment[clust==4,cell_type:='B-cell']
+assignment[clust == 5, cell_type:= 'NK cell']
 
 sce_info$SC3_assignment = assignment$cell_type
 p = my_plot_tSNE(tsne = tsne_info,
-                 color = pData(sce_info)[,"SC3_assignment",drop=F],
-                 shape = pData(sce_info)[,"cell_type",drop=F],
+                 color = colData(sce_info)[,"SC3_assignment",drop=F],
+                 shape = colData(sce_info)[,"cell_type",drop=F],
                  title = "SC3 assignment",
                  show_proportions = T)
 print(p)
@@ -691,8 +697,8 @@ We can also plot the silhoutte values on the tSNE map:
 ```{r}
 sce_info$hclust_sil = si[,3]
 p = my_plot_tSNE(tsne = tsne_info,
-                 color = pData(sce_info)[,"hclust_sil",drop=F],
-                 shape = pData(sce_info)[,"cell_type",drop=F],
+                 color = colData(sce_info)[,"hclust_sil",drop=F],
+                 shape = colData(sce_info)[,"cell_type",drop=F],
                  title = "tSNE colored by silhouette width")
 print(p+scale_color_distiller(type="div", palette = "RdBu"))
 ```
@@ -706,26 +712,26 @@ sce_info$hclust_eucl = as.factor(groups_hclust_eucl)
 table(sce_info$SC3_assignment,sce_info$hclust_eucl)
 ```
 
-We see that the assignments of the two methods are very similar. In addition to the clusters found by SC3, hclust identified a tiny cluster of monocytes (cluster 6). Let's have a look at the expression of some monocyte marker genes. To do so, we make use of the `plotExpression` function from the scater package:
+We see that the assignments of the two methods are very similar. In addition to the clusters found by SC3, hclust identified two tiny clusters of monocytes (clusters 6 and 7). Let's have a look at the expression of some monocyte and dendritic cell marker genes. To do so, we make use of the `plotExpression` function from the scater package:
 
 ```{r}
 # change the plotted gene names to symbol for better readability
 plot_sce = sce_info
-rownames(plot_sce) = fData(plot_sce)$symbol
-monocyte_markers = which(fData(sce_info)$symbol %in% c('CD14','LYZ','FCGR3A','MS4A7'))
+rownames(plot_sce) = rowData(plot_sce)$symbol
+monocyte_markers = which(rowData(sce_info)$symbol %in% c('CD14','LYZ','FCGR3A','MS4A7','FCER1A','CST3'))
 p = plotExpression(plot_sce,features = monocyte_markers, x="hclust_eucl",
                colour_by = "hclust_eucl")
 print(p)
 ```
 
-We see that our small population of monocytes has low expression of LYZ and CD14 but high expression of CD16 (FCGR3A) and MS4A7. We therefore conclude that this small population corresponds to the CD14+/CD16++ monocytes whereas the remaining monocytes are the "classical" CD14++/CD16- monocytes.
+We see that our small population of monocytes has low expression of LYZ and CD14 but high expression of CD16 (FCGR3A) and MS4A7. We therefore conclude that this small population corresponds to the CD14+/CD16++ monocytes whereas the remaining monocytes are the "classical" CD14++/CD16- monocytes.Cluster 7 is CD14/CD16 negative, and expresses high levels of FCER1A and CST3. We therefore label this cluster as dendritic cells.
 
 We can now label our assignment accordingly and visualize on tSNE map:
 
 ```{r,fig.width = 8}
-sce_info$hclust_eucl = factor(sce_info$hclust_eucl, levels = levels(sce_info$hclust_eucl), labels = c("T-helper cell","CD14++/CD16- Monocyte","B-cell","CD8+ T-cell","NK cell","CD14+/CD16++ Monocyte"))
-p = my_plot_tSNE(tsne = tsne_info, color = pData(sce_info)[,"hclust_eucl",drop=F],
-                 shape = pData(sce_info)[,"cell_type",drop=F],
+sce_info$hclust_eucl = factor(sce_info$hclust_eucl, levels = levels(sce_info$hclust_eucl), labels = c("CD4 T-cell","CD14++/CD16- Monocyte","B-cell","CD8 T-cell","NK cell","CD14+/CD16++ Monocyte", "Dendritic cell"))
+p = my_plot_tSNE(tsne = tsne_info, color = colData(sce_info)[,"hclust_eucl",drop=F],
+                 shape = colData(sce_info)[,"cell_type",drop=F],
                  title = "hclust (euclidean) assignment",
                  show_proportions = T)
 print(p)
@@ -748,8 +754,8 @@ plot(hfit2, main = "hclust on Pearson correlation")
 From the dendrogram, we can already guess that we did not get a very fine-grained clustering. But let's check on the tSNE-map anyway:
 
 ```{r,fig.width=8}
-p = my_plot_tSNE(tsne = tsne_info, color = pData(sce_info)[,"hclust_pearson",drop=F],
-                 shape = pData(sce_info)[,"cell_type",drop=F],
+p = my_plot_tSNE(tsne = tsne_info, color = colData(sce_info)[,"hclust_pearson",drop=F],
+                 shape = colData(sce_info)[,"cell_type",drop=F],
                  title = "hclust (Pearson) assignment",
                  show_proportions = T)
 print(p)
@@ -777,7 +783,7 @@ plots = list()
 for(i in 1:5){
   df = data.frame(apply(assignment_info[[i]],c(1,2),as.factor))
   p = my_plot_tSNE(tsne=tsne_info, color = df[,'cl_id.2',drop=F],
-                   shape = pData(sce_info)[,"cell_type",drop=F],
+                   shape = colData(sce_info)[,"cell_type",drop=F],
                    title = paste0("pcaReduce, run ", i))
   plots[[i]] = p
 }
@@ -790,7 +796,7 @@ Note that each time, the output is slighrly different, but the overall structure
 
 ### Graph-based methods
 
-#### MCL
+#### MCL (does not run on Windows)
 The MCL algorithm is short for the Markov Cluster Algorithm. It is an unsupervised cluster algorithm for graphs based on simulation of (stochastic) flow in graphs ([van Dongen et. al](https://micans.org/mcl/)). 
 
 As a first step, we will construct an adjacency matrix from a similarity matrix using the function `build_adjacency_matrix`. This function takes as input either a pre-computed similarity matrix or the raw counts from which to calculate a correlation matrix. In addition, it requires a value for the similarity cutoff. It then builds a binary matrix of 1s and 0s form this information. A 1 means the similarity was larger than the cutoff. We can set the  cutoff to "auto", this way, the algorithm will look for a valley in the distribution of similarities and use this as a cutoff. The function returns a list with the following entries:
@@ -809,22 +815,25 @@ adj_corr = build_adjacency_matrix(mat = sim,cutoff="auto",is_similarity=T)
 Now we run MCL with the above list as input:
 
 ```{r, message = F}
-groups_MCL = MCLcell.clust(adj_corr,mcl_path = mcl_path)
+# use R MCL:
+groups_MCL = MCLcell.clust(adj_corr, use_external_mcl = FALSE)
+#use external MCL (UNIX only)
+#groups_MCL = MCLcell.clust(adj_corr, use_external_mcl = TRUE, mcl_path = mcl_path)
 sce_info$MCL = as.factor(groups_MCL)
 table(sce_info$MCL,sce_info$hclust_eucl)
 ```
 
-We see that the result is almost the same as that found by the hierarchical clustering, also visible on the tSNE-map:
+We see that the MCL found only three clusters, merging the B and T cells:
 
 ```{r, fig.width = 8}
-p = my_plot_tSNE(tsne = tsne_info, color = pData(sce_info)[,"MCL",drop=F],
-                 shape = pData(sce_info)[,"hclust_eucl",drop=F],
+p = my_plot_tSNE(tsne = tsne_info, color = colData(sce_info)[,"MCL",drop=F],
+                 shape = colData(sce_info)[,"hclust_eucl",drop=F],
                  title = "MCL (cutoff=auto) assignment",
                  show_proportions = T)
 print(p)
 ```
 
-However, MCL did not manage to find the two T-cell populations. We can try changing the cutoff for the calculation of the adjacency matrix and re-run the algorithm:
+We can try changing the cutoff for the calculation of the adjacency matrix and re-run the algorithm:
 
 ```{r,fig.height=6,fig.width = 9}
 adj_corr = build_adjacency_matrix(mat = sim,cutoff=0.8,is_similarity=T)
@@ -832,24 +841,24 @@ groups_MCL = MCLcell.clust(adj_corr,mcl_path = mcl_path)
 sce_info$MCL2 = as.factor(groups_MCL)
 table(sce_info$MCL2,sce_info$hclust_eucl)
 
-p = my_plot_tSNE(tsne = tsne_info, color = pData(sce_info)[,"MCL2",drop=F],
-                 shape = pData(sce_info)[,"hclust_eucl",drop=F],
-                 title = "MCL (cutoff=0.7) assignment",
+p = my_plot_tSNE(tsne = tsne_info, color = colData(sce_info)[,"MCL2",drop=F],
+                 shape = colData(sce_info)[,"hclust_eucl",drop=F],
+                 title = "MCL (cutoff=0.8) assignment",
                  show_proportions = T)
 p = p + scale_color_manual(values = brewer.pal(10,"Paired"))
 print(p)
 ```
 
-We note that by raising the similarity cutoff, we can force MCL to make more clusters. We now find the expected populations, but we also start splitting clusters that probably should not be split.
+We note that by raising the similarity cutoff, we can force MCL to make more clusters. We now find the expected populations. 
 
 In conclusion, MCL performs similar to hierearchical clustering. Its main advantage is that it is much faster than hclust and can therefore be used on datasets with ten thousands of cells. The main drawback is that MCL is very sensitive to the provided input. Using a similarity measure that does not appropriately separate cells or using the wrong similarity cutoff will lead to MCL making lots of clusters with just one cell inside. The automated cutoff determination should provide some guidance here, but it is not guaranteed to work in all cases. 
 
-#### Seurat
+#### Seurat (fails to install on Windows)
 Note: You might have to restart R before trying to load Seurat, because this package alone loads 121 (!) dependencies, which might just crash R. 
 
 We can run the clustering part of seurat by using the `seurat_clustering` wrapper:
 
-```{r,eval = T}
+```{r,eval = F}
 library(Seurat)
 seurat_assignments = seurat_clustering(sce_info,vars.to.regress=NULL,res=1.2)
 sce_info$seurat = as.factor(seurat_assignments)
@@ -857,7 +866,7 @@ sce_info$seurat = as.factor(seurat_assignments)
 
 And compare the assignments to hclust:
 
-```{r,fig.width=8, eval = T}
+```{r,fig.width=8, eval = F}
 table(sce_info$seurat,sce_info$hclust_eucl)
 p = my_plot_tSNE(tsne = tsne_info, color = pData(sce_info)[,"seurat",drop=F],
                  shape = pData(sce_info)[,"hclust_eucl",drop=F],
@@ -883,8 +892,8 @@ Visualize the assignment:
 
 ```{r,fig.height=6,fig.width=8}
 sce_info$DBSCAN = as.factor(DBSCAN_groups)
-p = my_plot_tSNE(tsne = tsne_info, color = pData(sce_info)[,"DBSCAN",drop=F],
-                 shape = pData(sce_info)[,"hclust_eucl",drop=F],
+p = my_plot_tSNE(tsne = tsne_info, color = colData(sce_info)[,"DBSCAN",drop=F],
+                 shape = colData(sce_info)[,"hclust_eucl",drop=F],
                  title = "DBSCAN assignment",show_proportions = T)
 print(p)
 
@@ -913,7 +922,7 @@ p = ggplot(dt, aes(x=as.factor(cluster),y=`jaccard index`)) + geom_boxplot() +th
 print(p + ggtitle("Jaccard similarity between cluster assignment on the full data and on 100 bootstrap samples"))
 ```
 
-Here, we see that the 3 large clusters are highly stable whereas the smallest cluster is not.
+Here, we see that all clusters are highly stable.
 
 ### Model based clustering (Mclust)
 
@@ -946,8 +955,8 @@ table(sce_info$mclust,sce_info$hclust_eucl)
 Visualize on tSNE map:
 
 ```{r, fig.width = 8}
-p = my_plot_tSNE(tsne = tsne_info, color = pData(sce_info)[,"mclust",drop=F],
-                 shape = pData(sce_info)[,"hclust_eucl",drop=F],
+p = my_plot_tSNE(tsne = tsne_info, color = colData(sce_info)[,"mclust",drop=F],
+                 shape = colData(sce_info)[,"hclust_eucl",drop=F],
                  title = "Mclust assignment",show_proportions = T)
 print(p)
 ```
@@ -962,8 +971,8 @@ sce_info$mclust_forced = as.factor(mclust_model$classification)
 
 table(sce_info$mclust_forced,sce_info$hclust_eucl)
 
-p = my_plot_tSNE(tsne = tsne_info, color = pData(sce_info)[,"mclust_forced",drop=F],
-                 shape = pData(sce_info)[,"hclust_eucl",drop=F],
+p = my_plot_tSNE(tsne = tsne_info, color = colData(sce_info)[,"mclust_forced",drop=F],
+                 shape = colData(sce_info)[,"hclust_eucl",drop=F],
                  title = "Mclust assignment")
 print(p)
 ```
