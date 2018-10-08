@@ -386,4 +386,116 @@ custom_sc3_plot_markers = function (object, k, auroc = 0.85, p.val = 0.01, show_
                                                                                                  1]) != 0), cellheight = 10), list(annotation_col = ann)[add_ann_col]))
 }
 
+# This is a modified version of the scater plotHighestExprs function. It fixes a bug that appears if as_percentage is set to False.
 
+custom_plotHighestExprs = 
+  function (object, n = 50, controls, colour_cells_by, drop_features = NULL, 
+            exprs_values = "counts", by_exprs_values = exprs_values, 
+            by_show_single = TRUE, feature_names_to_plot = NULL, as_percentage = TRUE) 
+  {
+    if (is.null(rownames(object))) {
+      rownames(object) <- sprintf("Feature %i", seq_len(nrow(object)))
+    }
+    if (!is.null(drop_features)) {
+      to_discard <- .subset2index(drop_features, object, byrow = TRUE)
+      object <- object[-to_discard, ]
+    }
+    exprs_mat <- assay(object, exprs_values, withDimnames = FALSE)
+    ave_exprs <- scater:::.rowSums(exprs_mat)
+    #added by me to fix a bug in v. 1.8.2
+    if(!as_percentage){
+      ave_exprs <- scater:::.rowSums(exprs_mat)/dim(exprs_mat)[2]
+    }
+    oo <- order(ave_exprs, decreasing = TRUE)
+    chosen <- head(oo, n)
+    if (is.null(feature_names_to_plot)) {
+      feature_names <- rownames(object)
+    }
+    else {
+      feature_names <- scater:::.choose_vis_values(object, feature_names_to_plot, 
+                                                   search = "metadata", mode = "row")$val
+    }
+    rownames(exprs_mat) <- feature_names
+    df_exprs_by_cell <- t(exprs_mat[chosen, ])
+    df_exprs_by_cell <- as.matrix(df_exprs_by_cell)
+    if (as_percentage) {
+      total_exprs <- sum(ave_exprs)
+      top50_pctage <- 100 * sum(ave_exprs[chosen])/total_exprs
+      df_exprs_by_cell <- 100 * df_exprs_by_cell/.colSums(exprs_mat)
+    }
+    df_exprs_by_cell_long <- reshape2::melt(df_exprs_by_cell)
+    colnames(df_exprs_by_cell_long) <- c("Cell", "Tag", "value")
+    df_exprs_by_cell_long$Tag <- factor(df_exprs_by_cell_long$Tag, 
+                                        rev(feature_names[chosen]))
+    if (missing(colour_cells_by)) {
+      colour_cells_by <- scater:::.qc_hunter(object, paste0("total_features_by_", 
+                                                   exprs_values), mode = "column")
+    }
+    if (!is.null(colour_cells_by)) {
+      colour_out <- scater:::.choose_vis_values(object, colour_cells_by, 
+                                                mode = "column", exprs_values = by_exprs_values, 
+                                                discard_solo = !by_show_single)
+      colour_cells_by <- colour_out$name
+      df_exprs_by_cell_long$colour_by <- colour_out$val[df_exprs_by_cell_long$Cell]
+      aes_to_use <- aes_string(y = "Tag", x = "value", colour = "colour_by")
+    }
+    else {
+      aes_to_use <- aes_string(y = "Tag", x = "value")
+    }
+    plot_most_expressed <- ggplot(df_exprs_by_cell_long, aes_to_use) + 
+      geom_point(alpha = 0.6, shape = 124)
+    if (as_percentage) {
+      plot_most_expressed <- plot_most_expressed + ggtitle(paste0("Top ", 
+                                                                  n, " account for ", format(top50_pctage, digits = 3), 
+                                                                  "% of total")) + xlab(paste0("% of total ", exprs_values))
+    }
+    else {
+      plot_most_expressed <- plot_most_expressed + xlab(exprs_values)
+    }
+    plot_most_expressed <- plot_most_expressed + ylab("Feature") + 
+      theme_bw(8) + theme(legend.position = c(1, 0), legend.justification = c(1, 
+                                                                              0), axis.text.x = element_text(colour = "gray35"), axis.text.y = element_text(colour = "gray35"), 
+                          axis.title.x = element_text(colour = "gray35"), axis.title.y = element_text(colour = "gray35"), 
+                          title = element_text(colour = "gray35"))
+    if (!is.null(colour_cells_by)) {
+      if (!is.numeric(df_exprs_by_cell_long$colour_by)) {
+        plot_most_expressed <- .resolve_plot_colours(plot_most_expressed, 
+                                                     df_exprs_by_cell_long$colour_by, colour_cells_by)
+      }
+      else {
+        plot_most_expressed <- plot_most_expressed + scale_colour_gradient(name = colour_cells_by, 
+                                                                           low = "lightgoldenrod", high = "firebrick4", 
+                                                                           space = "Lab")
+      }
+    }
+    df_to_plot <- data.frame(Feature = factor(feature_names, 
+                                              levels = rev(feature_names)))
+    if (as_percentage) {
+      pct_total <- 100 * ave_exprs/total_exprs
+      df_to_plot$pct_total <- pct_total
+      legend_val <- "as.numeric(pct_total)"
+    }
+    else {
+      df_to_plot[[paste0("ave_", exprs_values)]] <- ave_exprs
+      legend_val <- sprintf("as.numeric(ave_%s)", exprs_values)
+    }
+    if (missing(controls)) {
+      controls <- scater:::.qc_hunter(object, "is_feature_control", 
+                             mode = "row")
+    }
+    if (!is.null(controls)) {
+      cont_out <- scater:::.choose_vis_values(object, controls, mode = "row", 
+                                              search = "metadata")
+      df_to_plot$is_feature_control <- cont_out$val
+      plot_most_expressed <- plot_most_expressed + geom_point(aes_string(x = legend_val, 
+                                                                         y = "Feature", fill = "is_feature_control"), data = df_to_plot[chosen, 
+                                                                                                                                        ], colour = "gray30", shape = 21) + scale_fill_manual(values = c("aliceblue", 
+                                                                                                                                                                                                         "wheat")) + guides(fill = guide_legend(title = "Feature control?"))
+    }
+    else {
+      plot_most_expressed <- plot_most_expressed + geom_point(aes_string(x = legend_val, 
+                                                                         y = "Feature"), data = df_to_plot[chosen, ], fill = "grey80", 
+                                                              colour = "grey30", shape = 21)
+    }
+    plot_most_expressed
+  }

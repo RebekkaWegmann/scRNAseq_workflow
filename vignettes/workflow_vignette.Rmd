@@ -247,8 +247,8 @@ As expected, we mostly find ribosomal proteins and core metabolic genes among th
 By setting as_percentage to false, we can also make a similar plot for the absolute raw expression values per gene (this looks buggy to me?):
 
 ```{r}
-p1.2 = plotHighestExprs(sce,feature_names_to_plot = "symbol",as_percentage=F,exprs_values = "logcounts", colour_cells_by=c("total_features_by_counts"))
-p1.2 = p1.2 + xlab("Expression [raw counts, log2]")
+p1.2 = plotHighestExprs(sce,feature_names_to_plot = "symbol",as_percentage=F,exprs_values = "counts", colour_cells_by=c("total_features_by_counts"))
+p1.2 = p1.2 + xlab("Expression [raw counts]")
 print(p1.2)
 
 # to save a plot, use the ggsave function:
@@ -603,7 +603,7 @@ sce_info = sc3_calc_biology(sce_info, k=c(8,13), regime = "marker")
 
 # change the plotted gene names to symbol for better readability
 plot_sce = sce_info
-rownames(plot_sce) = fData(plot_sce)$symbol
+rownames(plot_sce) = rowData(plot_sce)$symbol
 custom_sc3_plot_markers(plot_sce, k=6, p.val = 0.01, auroc = 0.90)
 
 rm(plot_sce)
@@ -617,7 +617,7 @@ sc3_plot_consensus(sce_info, k=5)
 
 In this plot, a value of 1 means the cells are always together in the same cluster. A value of 0 means they are never in the same cluster. Values in between indicate that it is not so clear where the cell belongs.
 
-We can also make a heatmap of gene expression. With the show_pdata parameter, we can add any column in pData sce to annotate the cells:
+We can also make a heatmap of gene expression. With the show_pdata parameter, we can add any column in colData sce to annotate the cells:
 
 ```{r, out.width="110%",fig.height=4}
 sc3_plot_expression(sce_info, k = 5, show_pdata = c("cell_type"))
@@ -1007,7 +1007,7 @@ CellSIUS (*Cell* *S*ubtype *I*dentification from *U*pregulated gene *S*ets ) is 
 The parameters for this algorithm are as follows:
 
 * sce: The SCESet with all our data
-* group_id: A column name in pData() that specifies the cell assignment to main clusters. Here, we pretend we only found the 4 major groups and use the manual `cell_type` grouping. 
+* group_id: A column name in colData() that specifies the cell assignment to main clusters. Here, we pretend we only found the 4 major groups and use the manual `cell_type` grouping. 
 * min_n_cells: The minimal number of cells per subcluster. Note: Main clusters that do not contain at least twice as many cells will be ignored.
 * verbose: Logical. Whether to print a summary or not.
 * min_fc: The minimum difference between the first and second mode of the bimodal gene distribution, on a log2 scale. The default is 2.
@@ -1355,18 +1355,18 @@ Form this, we conclude that the top DE genes are ceonserved between methods, whe
 
 Once we identified a core set of high confidence genes, we could look for additional markers by looking for genes that are highly correlated with the identified markers or by clustering the genes according to their expression pattern across cells. 
 
-### Using SC3 to find markers
+### Using SC3 to find markers (broken currently)
 
 This sections shows how to tweak the `sc3_calc_biology` function to work with any arbitrary clustering.
 
-```{r, eval = T, message = F}
+```{r, eval = F, message = F}
 library(SC3)
 
 # add the slots the calc biology function checks
 dummy = list(`0`=0)
 sce_clean@sc3$consensus = dummy
 sce_clean@sc3$n_cores = 4
-fData(sce_clean)$sc3_gene_filter = rep(TRUE,dim(sce_clean)[1]) #do not filter out any genes
+rowData(sce_clean)$sc3_gene_filter = rep(TRUE,dim(sce_clean)[1]) #do not filter out any genes
 
 # add whatever clustering assignment you want to the sc3_0_clusters slot
 sce_clean$sc3_0_clusters = as.factor(sce_info$cell_type) 
@@ -1376,10 +1376,10 @@ sce_clean = sc3_calc_biology(sce_clean, k = 0)
 
 Plot markers:
 
-```{r, out.width="110%",fig.height=6}
+```{r, out.width="110%",fig.height=6, eval=F}
 # change the plotted gene names to symbol for better readability
-plot_sce = sce_clean[!is.na(fData(sce_clean)$symbol),]
-rownames(plot_sce) = fData(plot_sce)$symbol
+plot_sce = sce_clean[!is.na(rowData(sce_clean)$symbol),]
+rownames(plot_sce) = rowData(plot_sce)$symbol
 custom_sc3_plot_markers(plot_sce, k=0, p.val = 0.01, auroc = 0.90, show_pdata='sc3_0_clusters')
 ```
 
@@ -2223,7 +2223,7 @@ This implements the clustering method provided in Seurat. See the [package docum
 Input:
 
 * sce: SCESet containing raw and normalized data.
-* vars.to.regress: Character vector (optional). Names of columns in pData(sce) that are possible confounders and whose contribution to the variation should be regressed out.
+* vars.to.regress: Character vector (optional). Names of columns in colData(sce) that are possible confounders and whose contribution to the variation should be regressed out.
 * res: resolution of the clustering. The higher, the more small clusters will be made.
 * n_comp: Integer. number of principal compenents to use in clustering.
 
@@ -2244,10 +2244,10 @@ seurat_clustering = function(sce,vars.to.regress=NULL,res=0.6,n_comp=10){
   tmp_seurat@calc.params$NormalizeData = list(normalization.method ="dummy")
   
   if(!is.null(vars.to.regress)){
-    if(any(!vars.to.regress%in%names(pData(sce)))){
-      stop("Variables to regress out have to be column names in pData(sce)")
+    if(any(!vars.to.regress%in%names(colData(sce)))){
+      stop("Variables to regress out have to be column names in colData(sce)")
     }
-    tmp_seurat = AddMetadata(object = tmp_seurat, metadata = pData(sce)[,vars.to.regress])
+    tmp_seurat = AddMetadata(object = tmp_seurat, metadata = colData(sce)[,vars.to.regress])
     tmp_seurat = ScaleData(object = tmp_seurat,vars.to.regress=vars.to.regress)
   } else {
     tmp_seurat = ScaleData(object = tmp_seurat)
@@ -2275,7 +2275,7 @@ This function identifies cell subclusters that are characterized by specific exp
 The main function `cellsius_main` takes the following arguments:
 
 * sce: SCESet. Your dataset.
-* group_id: Character. A column name in pData(sce) that specifies how the cells should be grouped in clusters.
+* group_id: Character. A column name in colData(sce) that specifies how the cells should be grouped in clusters.
 * min_n_cells: Integer. When identifying bimodal gene distributions, this specifies the minimum number of cells per mode. Also, clusters with a total number of cells below 2x this number will be entirely ignored.
 * min_fc: Numeric, defaults to 2. Minimum difference in mean [log2] between the two modes of the gene expression distribution. 
 * fc_between_cutoff: Numeric, defaults to 1. Minimum difference [log2] in gene expression between cells in the subcluster and all other cells. The higher, the more cluster-specific the genes. Note that this should not be set higher than min_fc.
@@ -2297,7 +2297,7 @@ cellsius_main = function(sce,group_id,min_n_cells=10,verbose = T, min_fc = 2,fc_
   expr_dt = data.table(gene_id = rownames(sce),norm_exprs(sce))
   expr_dt_melt = melt(expr_dt,id.vars="gene_id",val="expr",var="cell_idx")
   expr_dt_melt = merge(expr_dt_melt,
-                       data.table(cell_idx=colnames(sce),main_cluster=as.character(pData(sce)[,group_id])),
+                       data.table(cell_idx=colnames(sce),main_cluster=as.character(colData(sce)[,group_id])),
                        by="cell_idx")
   
   #Identify genes with significant bimodal distribution
@@ -2564,7 +2564,7 @@ cellsius_final_cluster_assignment = function(rare, sce, group_id, min_n_genes = 
   
   rare[,n_genes:=length(unique(gene_id)),by='sub_cluster']
   
-  assignments = data.table(cell_idx = colnames(sce), pData(sce)[,group_id])
+  assignments = data.table(cell_idx = colnames(sce), colData(sce)[,group_id])
   names(assignments) = c('cell_idx', 'group')
   assignments$group = as.character(assignments$group)
   assignments = merge(assignments, rare[n_genes>=min_n_genes,c('cell_idx','main_cluster','sub_cluster')],by='cell_idx',all=T)
@@ -2636,8 +2636,8 @@ General input for all of them:
 
 * sce = the SCESet after QC or after normalization
 * cl_id : the name of the grouping (e.g. "mclust") used in the comparison. Must be
-  a column name of pData(sce)
-* cl_ref: the entry in pData(sce)$cl_id that should be used as the reference,
+  a column name of colData(sce)
+* cl_ref: the entry in colData(sce)$cl_id that should be used as the reference,
  i.e. against which all the rest of the cells are compared
  * alpha = false discovery rate cutoff, default = 0.05
 * fc_cutoff = log2 fold change cutoff, default = 0.5
@@ -2653,10 +2653,10 @@ run_wilcoxon_test = function(sce,cl_id,cl_ref,
   
   if(!is.null(pseudocount)){warning("The pseudocount argument is deprecated and will be removed!")}
   
-  ignore = is.na(pData(sce)[,cl_id])
+  ignore = is.na(colData(sce)[,cl_id])
   sce = sce[,!ignore] 
   
-  in_clust = pData(sce)[,cl_id] %in% cl_ref
+  in_clust = colData(sce)[,cl_id] %in% cl_ref
   pvals = apply(norm_exprs(sce),1,
                 function(x) wilcox.test(x=x[in_clust],y=x[!in_clust])$p.value)
   fc = apply(norm_exprs(sce),1,
@@ -2685,22 +2685,22 @@ run_limma = function(sce,cl_id,cl_ref,
     stop("Method has to be either \"voom\" or \"trend\".")
   }
   
-  ignore = is.na(pData(sce)[,cl_id])
+  ignore = is.na(colData(sce)[,cl_id])
   sce = sce[,!ignore] 
   
-  res = as.factor(pData(sce)[,cl_id] %in% cl_ref)
+  res = as.factor(colData(sce)[,cl_id] %in% cl_ref)
   design = model.matrix(~0+res)
   colnames(design) = c("Rest","Cluster")
   rownames(design) = colnames(sce)
   
   # filter out genes not detected at a count of count-thr in at least
   # 50% of cells in at least one cluster. Outlier cells (clusters with only one cell) are ignored.
-  clust_sizes = table(pData(sce)[,cl_id])
+  clust_sizes = table(colData(sce)[,cl_id])
   clusts = names(clust_sizes[which(clust_sizes>1)])
   
   keep_mat = matrix(rep(NA,dim(sce)[1]*length(clusts)),ncol = length(clusts))
   for(i in seq(length(clusts))){
-    keep_mat[,i] = rowSums(counts(sce)[,pData(sce)[,cl_id]==clusts[i]]>=count_thr)>=pct/100*length(which(pData(sce)[,cl_id]==clusts[i]))  
+    keep_mat[,i] = rowSums(counts(sce)[,colData(sce)[,cl_id]==clusts[i]]>=count_thr)>=pct/100*length(which(colData(sce)[,cl_id]==clusts[i]))  
   }
   keep = apply(keep_mat, 1, function(x) any(x))
   
@@ -2747,13 +2747,13 @@ run_MAST = function(sce,cl_id,cl_ref,n_cores = 8,nbins=10,min_per_bin=30,
   
   library(MAST)
   
-  ignore = is.na(pData(sce)[,cl_id])
+  ignore = is.na(colData(sce)[,cl_id])
   sce = sce[,!ignore] 
   
   options(mc.cores = n_cores)
   if(norm){
-    sca = FromMatrix(norm_exprs(sce), pData(sce), fData(sce))} else {
-      sca = FromMatrix(log2(counts(sce)+1), pData(sce), fData(sce))
+    sca = FromMatrix(norm_exprs(sce), colData(sce), rowData(sce))} else {
+      sca = FromMatrix(log2(counts(sce)+1), colData(sce), rowData(sce))
     }
   # adaptive thresholding
   # note how the threshold moves with median expression
@@ -2777,7 +2777,7 @@ run_MAST = function(sce,cl_id,cl_ref,n_cores = 8,nbins=10,min_per_bin=30,
   colData(sca)$condition=cond
   # calculate the cellular detection rate as no. detected features / no. total features
   # and center it 
-  colData(sca)$cngeneson = scale(pData(sce)$total_features/dim(sce)[1],scale=F)
+  colData(sca)$cngeneson = scale(colData(sce)$total_features/dim(sce)[1],scale=F)
   # fit model (note that this will take time for large datasets!!)
   message("Fitting models...")
   zlmCond = zlm(~condition + cngeneson, sca)
@@ -2908,7 +2908,7 @@ Input:
 * comp: Numerical vector with 2 elements. The 2 components to plot against each other.
 * return_pca: Logical. Should the prcomp object be returned? If TRUE, the function returns a list with pca = the prcomp object and plot = the plot. If false, only the plot is returned as a ggplot2 object.
 * use_irlba: Logical. Should the principal components be calculated using prcomp_irlba? Using irlba ignificantly increases speed for large datasets.
-* color, size and shape: Each a data.frame with one column containing the respective values to plot. For colors, numeric values are plotted on a continuous scale, factors as discrete colors. Note that the rownames of the data.frame have to  be the same as the rownames of pca, but can be in any order. By default, the column name is used as a label for the color legend. The easiest way of setting any of those values is to use columns in the phenoData of your SCESet, e.g. colors = pData(sce)[,"cluster",drop=F]. 
+* color, size and shape: Each a data.frame with one column containing the respective values to plot. For colors, numeric values are plotted on a continuous scale, factors as discrete colors. Note that the rownames of the data.frame have to  be the same as the rownames of pca, but can be in any order. By default, the column name is used as a label for the color legend. The easiest way of setting any of those values is to use columns in the phenoData of your SCESet, e.g. colors = colData(sce)[,"cluster",drop=F]. 
 * alpha: Between 0 and 1. Transparency of the points.
 * tite: Title of the plot.
 
@@ -3015,7 +3015,7 @@ Input:
 * is_distance: Logical. Is the input for Rtsne a distance matrix?
 * scale_pca: Logical. Should the data be scaled to have unit variance? Default = FALSE.
 * n_comp: Number of principal components used by tSNE.
-* color, size and shape: Each a data.frame with one column containing the respective values to plot. For colors, numeric values are plotted on a continuous scale, factors as discrete colors. Note that the rownames of the data.frame have to  be the same as the rownames of pca, but can be in any order. By default, the column name is used as a label for the color legend. The easiest way of setting any of those values is to use columns in the phenoData of your SCESet, e.g. colors = pData(sce)[,"cluster",drop=F]. 
+* color, size and shape: Each a data.frame with one column containing the respective values to plot. For colors, numeric values are plotted on a continuous scale, factors as discrete colors. Note that the rownames of the data.frame have to  be the same as the rownames of pca, but can be in any order. By default, the column name is used as a label for the color legend. The easiest way of setting any of those values is to use columns in the phenoData of your SCESet, e.g. colors = colData(sce)[,"cluster",drop=F]. 
 * alpha: Between 0 and 1. Transparency of the plotted points.
 * tite: Title of the plot.
 * show_proportions: Logical. if the plot is colored by a dsicrete variable, should the proprtions of points per color be shown in the legend?

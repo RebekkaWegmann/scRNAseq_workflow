@@ -83,14 +83,18 @@ annotate_cell_cycle = function(sce, organism = "human", gene.names = rownames(sc
 
 # Plotting QC based on RNA amount detected per cell
 plot_RNA_QC = function(input_sce, min_genes, min_UMI){
-  par(mfrow=c(1,3))
-  hist(log2(input_sce$total_features),xlab="log2[ # detected genes per cell]", main='', cex.axis=1.5,n=100)
-  abline(v=min_genes,col=2)
-  hist(log2(input_sce$total_counts),xlab="log2 [# of UMIs per cell]", main='', cex.axis=1.5,n=100)
-  abline(v=min_UMI,col=2)
-  plot(log2(input_sce$total_features),log2(input_sce$total_counts),xlab="log2[ # detected features per cell]",ylab="log2 [total counts per cell]", cex.axis=1.5)
-  abline(v=min_genes,col=2)
-  abline(h=min_UMI,col=2)
+
+  p1 = ggplot(data.frame(x=log2(input_sce$total_features)), aes(x=x)) + geom_histogram() + 
+    geom_vline(xintercept = min_genes, color = 'red', size = 1.0) + 
+    xlab('Total features [log2]') + ggtitle('Features per cell') + theme_bw()  +theme(text = element_text(size=14))
+  p2 = ggplot(data.frame(x=log2(input_sce$total_counts)), aes(x=x)) + geom_histogram() +
+    geom_vline(xintercept = min_UMI, color = 'red', size=1.0) + 
+    xlab('Total UMIs [log2]') + ggtitle('UMIs per cell') + theme_bw()  +theme(text = element_text(size=14))
+  p3 = ggplot(data.frame(x=log2(input_sce$total_features),y=log2(input_sce$total_counts)), aes(x=x, y=y)) + geom_point() + 
+    geom_vline(xintercept = min_genes, color = 'red', size=1.0) + geom_hline(yintercept = min_UMI, color = 'red',size=1.0)+ 
+    xlab('Total features [log2]') + ylab('Total UMIs [log2]') + ggtitle('Features v.s. UMIs') +
+    theme_bw() +theme(text = element_text(size=14))
+  ggmultiplot(p1,p2,p3,cols=3)
 }
 
 # Plotting mitochondrial gene QC
