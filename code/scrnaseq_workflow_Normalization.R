@@ -29,23 +29,31 @@
 normalize_counts = function(sce,method = "scran"){
   #calculate size factors according to method
   switch(method,
-         "TC" ={sce = normalizeExprs(sce, method="none",return_norm_as_exprs=T)},
-         "RLE" = {sce = normalizeExprs(sce, method="RLE",return_norm_as_exprs=T)},
-         "TMM" = {sce = normalizeExprs(sce, method="TMM",return_norm_as_exprs=T)},
-         "UQ" = {sce = normalizeExprs(sce, method="upperquartile",return_norm_as_exprs=T)}, 
-         "scran" = {clusters = quickCluster(sce)
-         sizes = seq(20,100,5)
-         if(min(table(clusters))>max(sizes)){
-           sce = computeSumFactors(sce,clusters = clusters,sizes=sizes)
-         } else{
-           message("Clustering of cells failed, using global scaling factors")
-           sce = computeSumFactors(sce)
-           if(any(sizeFactors(sce) < 0)) {
-             warning("Negative size factors generated. Most likely, this is due to some cells having very low total feature counts. Consider using more stringent QC cutoffs.")
+         "TC" ={sizeFactors(sce) = sce$total_counts/mean(sce$total_counts)},
+         "RLE" = {sf =  edgeR::calcNormFactors(counts(sce), method = "RLE")
+                  sizeFactors(sce) =sf*sce$total_counts/mean(sf*sce$total_counts)},
+         "TMM" = {sf =  edgeR::calcNormFactors(counts(sce), method = "TMM")
+                  sizeFactors(sce) =sf*sce$total_counts/mean(sf*sce$total_counts)},
+         "UQ" = {sf =  edgeR::calcNormFactors(counts(sce), method = "upperquartile")
+                  sizeFactors(sce) =sf*sce$total_counts/mean(sf*sce$total_counts)}, 
+         "scran" = {
+           clusters = quickCluster(sce)
+           sizes = seq(20, 100, 5)
+           if (min(table(clusters)) > max(sizes)) {
+             sce = computeSumFactors(sce, clusters = clusters, sizes = sizes)
+           } else{
+             message("Clustering of cells failed, using global scaling factors")
+             sce = computeSumFactors(sce)
+             if (any(sizeFactors(sce) < 0)) {
+               warning(
+                 "Negative size factors generated. Most likely, this is due to some cells having very low total feature counts. Consider using more stringent QC cutoffs."
+               )
+             }
            }
-         }
+         })
+  
          sce = scater::normalize(sce)
-         norm_exprs(sce) = logcounts(sce)}
-  )
+         norm_exprs(sce) = logcounts(sce)
+  
   return(sce)  
 }
