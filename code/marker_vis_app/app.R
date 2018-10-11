@@ -1,9 +1,10 @@
 library(data.table)
 library(ggplot2)
+library(DT)
 
 # for testing purposes
 # source("/da/dmp/cb/wegmare1/scRNASeq/workflow_devel/scRNASeq_workflow/code/scRNASeq_pipeline_functions.R")
-# plot_dt = data.table(tSNE1 = c(1,2,3,4), tSNE2=c(1,2,3,4), col1 = c(1,1,1.5,2), col2 = c(1,1,1.5,2),factor = factor(c(1,1,2,2)))
+#plot_dt = data.table(tSNE1 = c(1,2,3,4), tSNE2=c(1,2,3,4), col1 = c(1,1,1.5,2), col2 = c(1,1,1.5,2))
 
 ui <- fluidPage(
 
@@ -25,23 +26,46 @@ ui <- fluidPage(
       
       selectInput("pal", label = "Color palette:", 
                   choices = list('default', 'red-blue', 'heat'),
-                  selected = 'default')
+                  selected = 'default'),
+      width = 2
       
     ),
 
     mainPanel(
-      h3(textOutput("selected_col")),
-      plotOutput("plot"))
-  )
-  
+      fluidRow(
+        column(
+            h3(textOutput("plot_title")),
+            plotOutput("plot"),
+            width=9,
+            offset=1
+        )
+       ),
+      br(),
+      br(),
+      fluidRow(
+        column(
+          h3(textOutput("table_title")),
+          br('This table displays all genes, ordered by their spearman correlation with the selected gene.'),
+          br(),
+          dataTableOutput("correlation_table"),
+          width = 9,
+          offset = 1
+          )
+        )
+      )
+    )
 )  
  
 
 # Define server logic ----
 server <- function(input, output) {
   
-  output$selected_col <- renderText({ 
+  output$plot_title = renderText({ 
     paste("tSNE map, colored by", input$color)
+  })
+  
+  output$table_title = renderText({ 
+    paste("Genes that are correlated with", input$color)
   })
   
   
@@ -70,6 +94,14 @@ server <- function(input, output) {
     )
     
     })
+  
+  
+  output$correlation_table = renderDataTable({
+    corr_table = cor(plot_dt[[input$color]], plot_dt[,-c(1,2)], method = "spearman")
+    corr_table = data.table(colnames(corr_table), t(corr_table))
+    setnames(corr_table, c('Gene','Correlation'))
+    DT::datatable(corr_table[order(Correlation,decreasing=T)]) 
+  })
 }
 
 # Run the app ----

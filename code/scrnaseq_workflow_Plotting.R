@@ -101,7 +101,7 @@ plot_pca_loadings = function(pca, comp = 1){
 # note thet for discrete color labels, the colors argument must be a factor
 my_plot_tSNE = function(counts=NULL,tsne=NULL,alpha = 0.7, color=NULL,abs_size = 2,
                         size=NULL,shape=NULL,return_tsne=F,is_distance=F,show_proportions=F,
-                        n_comp = 50, scale_pca=F, use_irlba = F, title="tSNE"){
+                        n_comp = 50, scale_pca=F, use_irlba = F, title="tSNE", perplexity = 30){
   
   if(is.null(counts)&is.null(tsne)){
     message('Please provide either a count matrix or pre-computed 
@@ -114,11 +114,11 @@ my_plot_tSNE = function(counts=NULL,tsne=NULL,alpha = 0.7, color=NULL,abs_size =
       }
       pca = prcomp_irlba(t(counts),n=n_comp,center=T,scale. = scale_pca)
       rownames(pca$x) = colnames(counts)
-      tsne = Rtsne(pca$x,pca = F, initial_dims = n_comp, is_distance = F)
+      tsne = Rtsne(pca$x,pca = F, initial_dims = n_comp, is_distance = F, perplexity = perplexity)
       rownames(tsne$Y) = colnames(counts)
     } else{
       tsne<-Rtsne(t(counts),initial_dims=n_comp,pca=T,
-                  is_distance=is_distance,pca_scale=scale_pca)
+                  is_distance=is_distance,pca_scale=scale_pca, perplexity = perplexity)
       rownames(tsne$Y) = colnames(counts)
     }
   } 
@@ -333,7 +333,7 @@ generic_scatterplot = function(dt, x_col, y_col,
 }
 
 # Function to launch the marker_vis shiny app (pre-alpha version and very buggy...)
-launch_marker_vis_app = function(tsne,sce,marker_idx){
+launch_marker_vis_app = function(tsne,sce,marker_idx = 1:dim(sce)[1]){
   plot_dt = data.table(tSNE1=tsne$Y[,1],tSNE2=tsne$Y[,2],
                        t(norm_exprs(sce)[marker_idx,,drop=F]))
   names(plot_dt)[-c(1,2)] = rowData(sce)$symbol[marker_idx]
