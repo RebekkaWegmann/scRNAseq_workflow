@@ -1,0 +1,4 @@
+*.Rhistory
+*.RData
+example_output/*
+example_plots/*

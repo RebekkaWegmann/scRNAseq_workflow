@@ -16,6 +16,17 @@
 # Quality Control
 ######################
 
+# calculate QC metrics and add to row / col data
+calculate_QC_metrics = function(sce, subsets =  list(MT=which(rowData(sce)$chr=="MT"))){
+  per_cell_qc = perCellQCMetrics(sce,subsets)
+  per_feature_qc = perFeatureQCMetrics(sce)
+  
+  colData(sce) = cbind(colData(sce), per_cell_qc)
+  rowData(sce) = cbind(rowData(sce), per_feature_qc)
+  return(sce)
+}
+  
+
 #_____________
 # Gene filters
 #___________
@@ -84,13 +95,13 @@ annotate_cell_cycle = function(sce, organism = "human", gene.names = rownames(sc
 # Plotting QC based on RNA amount detected per cell
 plot_RNA_QC = function(input_sce, min_genes, min_UMI){
 
-  p1 = ggplot(data.frame(x=log2(input_sce$total_features)), aes(x=x)) + geom_histogram() + 
+  p1 = ggplot(data.frame(x=log2(input_sce$detected)), aes(x=x)) + geom_histogram() + 
     geom_vline(xintercept = min_genes, color = 'red', size = 0.5) + 
     xlab('Total features [log2]') + ggtitle('Features per cell') + theme_bw()  +theme(text = element_text(size=14))
-  p2 = ggplot(data.frame(x=log2(input_sce$total_counts)), aes(x=x)) + geom_histogram() +
+  p2 = ggplot(data.frame(x=log2(input_sce$sum)), aes(x=x)) + geom_histogram() +
     geom_vline(xintercept = min_UMI, color = 'red', size=0.5) + 
     xlab('Total UMIs [log2]') + ggtitle('UMIs per cell') + theme_bw()  +theme(text = element_text(size=14))
-  p3 = ggplot(data.frame(x=log2(input_sce$total_features),y=log2(input_sce$total_counts)), aes(x=x, y=y)) + geom_point() + 
+  p3 = ggplot(data.frame(x=log2(input_sce$detected),y=log2(input_sce$sum)), aes(x=x, y=y)) + geom_point() + 
     geom_vline(xintercept = min_genes, color = 'red', size=0.5) + geom_hline(yintercept = min_UMI, color = 'red',size=0.5)+ 
     xlab('Total features [log2]') + ylab('Total UMIs [log2]') + ggtitle('Features v.s. UMIs') +
     theme_bw() +theme(text = element_text(size=14))
@@ -100,7 +111,7 @@ plot_RNA_QC = function(input_sce, min_genes, min_UMI){
 # Plotting mitochondrial gene QC
 plot_MT_QC = function(sce, t){
   par(mfrow=c(1,1))
-  mt_genes.amount = sce$pct_counts_MT 
+  mt_genes.amount = sce$subsets_MT_percent
   #mt gene content per cell
   plot(seq(length(mt_genes.amount)),(mt_genes.amount),pch=10,cex=1.5,col="gray",main=""
        , cex.axis=2,cex.lab=1.5,xlab="cell index",ylab="Ratio of MT-genes[%]")
@@ -108,10 +119,10 @@ plot_MT_QC = function(sce, t){
   abline(h=t,col="red",lty=2,cex=5)
   
   #UMI vs no. genes colored by mt gene content
-  plotColData(sce, x = "log10_total_features_by_counts",
-                                y = "log10_total_counts",
-                                colour_by = "pct_counts_MT")+
-    xlab("Total detected features [log10]") + ylab("Total counts [log10]")+
+  plotColData(sce, x = "detected",
+                                y = "sum",
+                                colour_by = "subsets_MT_percent")+
+    xlab("Total detected features") + ylab("Total counts")+
     ggtitle("Total features vs. total counts, colored by MT content")
 }
 

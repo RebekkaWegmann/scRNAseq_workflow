@@ -118,7 +118,7 @@ run_dbscan = function(dist,eps="auto",min_pts,tol=0.01){
   #automatic determination of eps (the "elbow" in the kNNdistplot)
   if(eps=="auto"){
     kNNdist = sort(kNNdist(dist,min_pts))
-    i = seq(1,length(kNNdist),as.integer(0.001*length(kNNdist)))
+    i = seq(1,length(kNNdist),as.integer(length(kNNdist)/500)+1)
     slope_prev = 100
     for(indx in i){
       slope = kNNdist[indx]/indx

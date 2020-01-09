@@ -52,7 +52,7 @@ normalize_counts = function(sce,method = "scran"){
            }
          })
   
-         sce = scater::normalize(sce)
+         sce = scater::logNormCounts(sce)
          norm_exprs(sce) = logcounts(sce)
   
   return(sce)  
