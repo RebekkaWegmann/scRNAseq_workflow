@@ -332,11 +332,26 @@ generic_scatterplot = function(dt, x_col, y_col,
   return(p)
 }
 
-# Function to launch the marker_vis shiny app (pre-alpha version and very buggy...)
+# Function to g the marker_vis shiny app (pre-alpha version and very buggy...)
 launch_marker_vis_app = function(tsne,sce,marker_idx = 1:dim(sce)[1]){
+  # if sparse data, need to convert to matrix first
+  if(class(norm_exprs(sce))[1]=="dgCMatrix"){
+    expr_matrix = as.matrix(norm_exprs(sce)[marker_idx,])
+    colnames(expr_matrix) = rownames(tsne$Y)
+  } else {
+    expr_matrix = norm_exprs(sce)[marker_idx,,drop=F]
+  }
+  
   plot_dt = data.table(tSNE1=tsne$Y[,1],tSNE2=tsne$Y[,2],
-                       t(norm_exprs(sce)[marker_idx,,drop=F]))
-  names(plot_dt)[-c(1,2)] = rowData(sce)$symbol[marker_idx]
+                       t(expr_matrix))
+  if("symbol" %in% names(rowData(sce))){
+    names(plot_dt)[-c(1,2)] = rowData(sce)$symbol[marker_idx]
+  } else if ("Symbol" %in% names(rowData(sce))){
+    names(plot_dt)[-c(1,2)] = rowData(sce)$Symbol[marker_idx]
+  } else {
+    warning('Please provide "symbol" or "Symbol" in rowData!')
+    return()
+    }
   assign("plot_dt",plot_dt,.GlobalEnv)
   runApp(file.path(code_dir,'marker_vis_app'))
 }
@@ -393,7 +408,7 @@ custom_plotHighestExprs = function (object, n = 50, colour_cells_by = NULL, cont
           by_show_single = TRUE, feature_names_to_plot = NULL, as_percentage = TRUE) 
 {
   exprs_mat <- assay(object, exprs_values, withDimnames = FALSE)
-  ave_exprs <- rowSums2(exprs_mat)
+  ave_exprs <- rowSums(exprs_mat)
   oo <- order(ave_exprs, decreasing = TRUE)
   #next 3 lines added by me to fix a bug 
   if(!as_percentage){
