@@ -43,9 +43,14 @@ run_wilcoxon_test = function(sce,cl_id,cl_ref,
   sce = sce[,!ignore] 
   
   in_clust = colData(sce)[,cl_id] %in% cl_ref
-  pvals = apply(norm_exprs(sce),1,
+  
+  exprs_vals = norm_exprs(sce)
+  # if(class(exprs_vals) == "dgCMatrix"){
+  #   exprs_vals = as.matrix(exprs_vals)
+  # }
+  pvals = apply(exprs_vals,1,
                 function(x) wilcox.test(x=x[in_clust],y=x[!in_clust])$p.value)
-  fc = apply(norm_exprs(sce),1,
+  fc = apply(exprs_vals,1,
              function(x) mean(x[in_clust])-mean(x[!in_clust]))
   #log2((mean(2^x[in_clust]-1)+pseudocount)/(mean(2^x[!in_clust]-1)+pseudocount))
   

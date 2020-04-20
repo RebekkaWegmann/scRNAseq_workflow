@@ -359,7 +359,9 @@ launch_marker_vis_app = function(tsne,sce,marker_idx = 1:dim(sce)[1]){
 # The following functions are modified from scater / SC3
 
 ## Custom version of the sc3_plot_markers function, taken from the SC3 package
-custom_sc3_plot_markers = function (object, k, auroc = 0.85, p.val = 0.01, show_pdata = NULL, order_dend = F) 
+custom_sc3_plot_markers = function (object, k,
+                                    auroc = 0.85, p.val = 0.01, 
+                                    show_pdata = NULL, order_dend = F, colnames=NULL) 
 {
   if (is.null(object@metadata$sc3$consensus)) {
     warning(paste0("Please run sc3_consensus() first!"))
@@ -369,6 +371,9 @@ custom_sc3_plot_markers = function (object, k, auroc = 0.85, p.val = 0.01, show_
     hc <- object@metadata$sc3$consensus[[as.character(k)]]$hc
   }
   dataset <- get_processed_dataset(object)
+  if(is.null(colnames(dataset)) & !is.null(colnames)){
+    colnames(dataset) = object[[colnames]]
+  }
   if (!is.null(object@metadata$sc3$svm_train_inds)) {
     dataset <- dataset[, object@metadata$sc3$svm_train_inds]
   }
@@ -397,8 +402,9 @@ custom_sc3_plot_markers = function (object, k, auroc = 0.85, p.val = 0.01, show_
                                              drop = FALSE], show_colnames = FALSE, cluster_rows = FALSE, 
                                      cluster_cols = FALSE, gaps_col = gaps,
                                      annotation_row = row.ann, 
-                                     annotation_names_row = FALSE, gaps_row = which(diff(markers[, 
-                                                                                                 1]) != 0), cellheight = 10), list(annotation_col = ann)[add_ann_col]))
+                                     annotation_names_row = FALSE, 
+                                     gaps_row = which(diff(markers[,1]) != 0),
+                                     cellheight = 10), list(annotation_col = ann)[add_ann_col]))
 }
 
 # This is a modified version of the scater plotHighestExprs function. It fixes a bug that appears if as_percentage is set to False.
