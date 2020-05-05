@@ -29,7 +29,7 @@
 normalize_counts = function(sce,method = "scran"){
   #calculate size factors according to method
   switch(method,
-         "TC" ={sizeFactors(sce) = sce$total_counts/mean(sce$total_counts)},
+         "TC" ={sizeFactors(sce) = sce$sum/mean(sce$sum)},
          "RLE" = {sf =  edgeR::calcNormFactors(counts(sce), method = "RLE")
                   sizeFactors(sce) =sf*sce$total_counts/mean(sf*sce$total_counts)},
          "TMM" = {sf =  edgeR::calcNormFactors(counts(sce), method = "TMM")
