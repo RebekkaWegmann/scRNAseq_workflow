@@ -19,7 +19,7 @@ On this example dataset (400 cells), running the complete workflow took ~5-10min
 First: There are a lot of dependencies in this workflow. Downloading and installing all of them will take time. How long exactly the installation will take depends on how many of the basic bioconductor packages you already have installed, and on your internet connection. For me, setting up the complete environment from scratch took around 4-6 hours.
 
 ### R and Bioconductor version
-Some of the bioconductor packages used in this workflow changed drastically between different versions, so that newer versions are no longer compatible with tho old ones. Therfore, please make sure your **R version is 3.6.1** and your **Bioconductor version is 3.10**. To install a specific version of bioconductor, install `BiocManager`:
+Some of the bioconductor packages used in this workflow changed drastically between different versions, so that newer versions are no longer compatible with tho old ones. Therfore, please make sure your **R version is 4.0** and your **Bioconductor version is 3.11**. To install a specific version of bioconductor, install `BiocManager`:
 ```{r, eval = F}
 install.packages("BiocManager")
 ```
@@ -46,7 +46,7 @@ In this section, all packages needed to run this vignette are listed in the orde
 ```{r, eval=F}
 # from CRAN
 install.packages("Rtsne") #Rtsne v. 0.15
-install.packages("ggplot2") # ggplot2 v. 3.2.1
+install.packages("ggplot2") # ggplot2 v. 3.2.2
 install.packages("data.table") # data.table v. 1.12.8
 install.packages("RColorBrewer") # RColorBrewer v. 1.1-2
 install.packages("mvoutlier") # mvoutlier 2.0.9, required by some functions from scater
@@ -54,16 +54,16 @@ install.packages("mvoutlier") # mvoutlier 2.0.9, required by some functions from
 devtools::install_github("bwlewis/irlba") # irlba 2.3.3, optional. Make sure you use irlba > 2.3.1, older versions contain a bug that results in unreliable output!
 
 # from Bioconductor
-BiocManager::install("scater", version="3.10") # scater v. 1.14.0
-BiocManager::install("scran", version="3.10") # scran v. 1.14.5
+BiocManager::install("scater", version="3.11") # scater v. 1.16.2
+BiocManager::install("scran", version="3.11") # scran v. 1.16.0
 ```
 
 #### Genome annotation (human)
 ```{r, eval=F}
-# ensembldb 2.4.1 and EnsDb.Hsapiens.v86 2.99.0
-BiocManager::install(c("ensembldb","EnsDb.Hsapiens.v86"), version="3.10")
-# org.Hs.eg.db v. 3.4.1
-BiocManager::install("org.Hs.eg.db", version="3.10")
+# ensembldb 2.12.1 and EnsDb.Hsapiens.v86 2.99.0
+BiocManager::install(c("ensembldb","EnsDb.Hsapiens.v86"), version="3.11")
+# org.Hs.eg.db v. 3.11.4
+BiocManager::install("org.Hs.eg.db", version="3.11")
 ```
 
 #### Genome annotation (mouse)
@@ -76,7 +76,7 @@ biocLite("org.Mm.eg.db")
 
 #### Feature selection
 ```{r,eval = F}
-BiocManager::install("M3Drop", version="3.10")
+BiocManager::install("M3Drop", version="3.11")
 ```
 
 #### Clustering
@@ -88,7 +88,7 @@ install.packages("dbscan") # DBSCAN v. 1.1-1
 install.packages(c("mclust","mvtnorm")) # mclust v. 5.4 and mvtnorm 1.0.6
 install.packages("dynamicTreeCut") # dynamicTreeCut v. 1.63-1 
 
-BiocManager::install("SC3", version="3.10") # SC3 v. 1.4.2
+BiocManager::install("SC3", version="3.11") # SC3 v. 1.4.2
 install.packages("MCL") #MCL 1.0
 ```
 
@@ -105,7 +105,7 @@ This will install MCL to ~/local/bin/mcl.
 
 #### Differential expression analysis
 ```{r,eval = F}
-BiocManager::install("limma", version="3.10") # limma v. 3.32.5
+BiocManager::install("limma", version="3.11") # limma v. 3.32.5
 ```
 
 ### Troubleshooting: Maximum number of DLLS reached
@@ -239,7 +239,7 @@ print(p1)
 
 As expected, we mostly find ribosomal proteins and core metabolic genes among the top 50 genes.
 
-By setting as_percentage to false, we can also make a similar plot for the absolute raw expression values per gene (I made a custom version for this, because the one in scater has a bug that make it show the sum of counts instead of mean):
+By setting as_percentage to false, we can also make a similar plot for the absolute raw expression values per gene (I made a custom version for this, because the one in scater has a bug that makes it show the sum of counts instead of mean)
 
 ```{r}
 p1.2 = custom_plotHighestExprs(sce,feature_names_to_plot = "symbol",as_percentage=F,exprs_values = "counts", colour_cells_by=c("detected"))
@@ -949,7 +949,7 @@ Limma-trend finds exactly the same genes as the wilcoxon test, probably because 
 
 
 
-### Using SC3 to find markers (broken currently)
+### Using SC3 to find markers
 
 This sections shows how to tweak the `sc3_calc_biology` function to work with any arbitrary clustering.
 
