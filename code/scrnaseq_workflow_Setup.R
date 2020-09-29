@@ -92,6 +92,15 @@ get_gene_annotations = function(gene_list,v=F,get_descriptions=T,organism = "hum
   return(geneName)
 }
 
+get_gene_symbols_in_order = function(gene_list){
+  # set get_descriptions to T if wanted
+  gene_annot <- get_gene_annotations(gene_list, get_descriptions = F)
+  setkey(gene_annot, 'gene_id')
+  gene_annot <- gene_annot[gene_list]
+  gene_names <- gene_annot$symbol
+  return(gene_names)
+}
+
 #-----------------------------------
 # Annotating genes using biomaRt
 
@@ -122,4 +131,46 @@ get_gene_annotations_biomart = function(gene_list){
   geneName[,symbol:=make.unique(symbol)]
   #save(geneName,file="data/output/geneName.RData")
   return(geneName)
+}
+
+
+####################
+# utility
+####################
+
+# merge two sce objects by adding columns to each other and fill in missing genes
+# the combined object will contain only assays and metadata present in both sces
+# if filter_genes is true, onlygenes detected in both experiments will be kept
+
+merge_sce = function(sce1,sce2, filter_genes = T){
+  if(any(colnames(sce1) %in% colnames(sce2))){
+    stop('Column names must be unique!')
+  }
+  all_rownames = unique(c(rownames(sce1), rownames(sce2)))
+  all_assays = intersect(names(assays(sce1)), names(assays(sce2)))
+  all_coldata = intersect(names(colData(sce1)), names(colData(sce2)))
+  all_rowdata = intersect(names(rowData(sce1)), names(rowData(sce2)))
+  
+  c = rbind(colData(sce1)[,all_coldata], colData(sce2)[,all_coldata])
+  r = unique(rbind(rowData(sce1)[,all_rowdata], rowData(sce2)[,all_rowdata]))[all_rownames,]
+  
+  sce_combined = SingleCellExperiment(colData = c, rowData = r)
+  
+  
+  for(i in 1:length(all_assays)){
+    tmp = matrix(nrow = length(all_rownames), ncol = dim(sce1)[2] + dim(sce2)[2], data=0)
+    rownames(tmp) = all_rownames
+    colnames(tmp) = c(colnames(sce1), colnames(sce2))
+    tmp[rownames(sce1), colnames(sce1)] = assays(sce1)[[which(assayNames(sce1) == all_assays[i])]]
+    tmp[rownames(sce2), colnames(sce2)] = assays(sce2)[[which(assayNames(sce2) == all_assays[i])]]
+    assays(sce_combined)[[i]] = tmp
+  }
+  names(assays(sce_combined)) = all_assays
+  
+  if(filter_genes){
+    genes_in_both = intersect(rownames(sce1), rownames(sce2))
+    sce_combined = sce_combined[genes_in_both,]
+  }
+  return(sce_combined)
+  
 }
