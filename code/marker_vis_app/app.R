@@ -76,7 +76,7 @@ server <- function(input, output) {
   
   output$plot  = renderPlot({
     # sort by the gene to plot so higher expression is on top
-    setorder(plot_dt, col = input$color)
+    setorderv(plot_dt, col = input$color)
     switch(input$pal,
     'default' = generic_scatterplot(plot_dt,
                         x_col = "tSNE1",
