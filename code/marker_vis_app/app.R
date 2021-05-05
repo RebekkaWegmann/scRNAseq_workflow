@@ -1,6 +1,7 @@
 library(data.table)
 library(ggplot2)
 library(DT)
+library(shinyWidgets)
 
 # for testing purposes
 # source("/da/dmp/cb/wegmare1/scRNASeq/workflow_devel/scRNASeq_workflow/code/scRNASeq_pipeline_functions.R")
@@ -27,6 +28,10 @@ ui <- fluidPage(
       selectInput("pal", label = "Color palette:", 
                   choices = list('default', 'red-blue', 'heat'),
                   selected = 'default'),
+      
+      materialSwitch("calculate_correlations", 
+                     label="Calculate correlations?"),
+      
       width = 2
       
     ),
@@ -45,7 +50,7 @@ ui <- fluidPage(
       fluidRow(
         column(
           h3(textOutput("table_title")),
-          br('This table displays all genes, ordered by their spearman correlation with the selected gene.'),
+          br('If calculate correlations is switched on, this table displays all genes, ordered by their spearman correlation with the selected gene. Note: This can be really slow for large datasets!'),
           br(),
           dataTableOutput("correlation_table"),
           width = 9,
@@ -70,6 +75,8 @@ server <- function(input, output) {
   
   
   output$plot  = renderPlot({
+    # sort by the gene to plot so higher expression is on top
+    setorder(plot_dt, col = input$color)
     switch(input$pal,
     'default' = generic_scatterplot(plot_dt,
                         x_col = "tSNE1",
@@ -97,10 +104,14 @@ server <- function(input, output) {
   
   
   output$correlation_table = renderDataTable({
-    corr_table = cor(plot_dt[[input$color]], plot_dt[,-c(1,2)], method = "spearman")
-    corr_table = data.table(colnames(corr_table), t(corr_table))
-    setnames(corr_table, c('Gene','Correlation'))
-    DT::datatable(corr_table[order(Correlation,decreasing=T)]) 
+    if(input$calculate_correlations){
+      corr_table = cor(plot_dt[[input$color]], plot_dt[,-c(1,2)], method = "spearman")
+      corr_table = data.table(colnames(corr_table), t(corr_table))
+      setnames(corr_table, c('Gene','Correlation'))
+      DT::datatable(corr_table[order(Correlation,decreasing=T)])
+    } else {
+      DT::datatable(data.table('dummy', 'Nothing to show here'))
+    }
   })
 }
 

@@ -23,7 +23,7 @@ my_plot_PCA = function(counts=NULL,pca=NULL, alpha = 0.7, scale_pca = T, center_
   if(is.null(counts)&is.null(pca)){
     message('Please provide either a count matrix or pre-computed 
             principal component analysis as a prcomp object.')
-  } else  if(is.null(pca)){
+  } else if(is.null(pca)){
     if(use_irlba){
       library(irlba)
       if(packageDescription("irlba")$Version <= 2.3){

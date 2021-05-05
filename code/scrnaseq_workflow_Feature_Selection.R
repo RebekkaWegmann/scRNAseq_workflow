@@ -66,7 +66,7 @@ info.genes = function(x,PLOT=F,qcv=.3,pv=.05,q=.95,minBiolDisp=0.1, perc_genes =
   testDenom  =  ( means * psia1theta + means^2 * cv2th ) / ( 1 + cv2th/m ) #omega
   
   pval  =  pchisq(vars*(m-1)/testDenom,df=m-1,lower.tail=F) #Chi^2 distribution
-  adj.pval  =  sort(p.adjust(pval,"fdr"))
+  adj.pval  =  p.adjust(pval,"fdr")
   
   if(!is.null(pv)){
     info = adj.pval < pv
@@ -84,12 +84,12 @@ info.genes = function(x,PLOT=F,qcv=.3,pv=.05,q=.95,minBiolDisp=0.1, perc_genes =
     
     xlabel = "log[ Average normalized read count]"
     smoothScatter(log(means+ps),log(cv2),xlab=xlabel,ylab="log[ Squared coefficient of variation (CV^2)]")
-    points(log(means+ps),log(cv2),col="gray")
+    # points(log(means+ps),log(cv2),col="gray")
     # lines(log(xg[which(vfit>0)]+ps), log(vfit[which(vfit>0)]), col="black", lwd=3,lty=2,ylim=range(cv2) )
     lines(log(xg[which(vfit_biol>0)]+ps), log(vfit_biol[which(vfit_biol>0)]), col="black", lwd=3,ylim=range(cv2) )
     lines(log(xg[which(vfit_biol>0)]+ps),log(vfit_biol[which(vfit_biol>0)] * qchisq(0.975,m-1)/(m-1)),lty=2,col="black")
     lines(log(xg[which(vfit_biol>0)]+ps),log(vfit_biol[which(vfit_biol>0)] * qchisq(0.025,m-1)/(m-1)),lty=2,col="black")
-    points(log(means[names(which(info)[TRUE])]+ps),log(cv2[names(which(info)[TRUE])]),col=2,cex=.5)
+    points(log(means[info]+ps),log(cv2[info]),col="red",cex=.5)
     
   }
   

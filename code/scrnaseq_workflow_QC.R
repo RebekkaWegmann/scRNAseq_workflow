@@ -21,6 +21,10 @@ calculate_QC_metrics = function(sce, subsets =  list(MT=which(rowData(sce)$chr==
   per_cell_qc = perCellQCMetrics(sce,subsets)
   per_feature_qc = perFeatureQCMetrics(sce)
   
+  # delete previous QC data, if any
+  colData(sce)[,names(per_cell_qc)] = NULL
+  rowData(sce)[,names(per_feature_qc)] = NULL
+  
   colData(sce) = cbind(colData(sce), per_cell_qc)
   rowData(sce) = cbind(rowData(sce), per_feature_qc)
   return(sce)
