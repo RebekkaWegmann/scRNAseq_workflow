@@ -19,7 +19,7 @@ On this example dataset (400 cells), running the complete workflow took ~5-10min
 First: There are a lot of dependencies in this workflow. Downloading and installing all of them will take time. How long exactly the installation will take depends on how many of the basic bioconductor packages you already have installed, and on your internet connection. For me, setting up the complete environment from scratch took around 4-6 hours.
 
 ### R and Bioconductor version
-Some of the bioconductor packages used in this workflow changed drastically between different versions, so that newer versions are no longer compatible with tho old ones. Therfore, please make sure your **R version is 4.0** and your **Bioconductor version is 3.11**. To install a specific version of bioconductor, install `BiocManager`:
+Some of the bioconductor packages used in this workflow changed drastically between different versions, so that newer versions are no longer compatible with tho old ones. Therfore, please make sure your **R version is 4.0 or 4.1** and your **Bioconductor version is 3.11, 3.12 or 3.13**. To install a specific version of bioconductor, install `BiocManager`:
 ```{r, eval = F}
 install.packages("BiocManager")
 ```
@@ -33,10 +33,10 @@ Lastly, installing packages from github requires the devtools package:
 ```{r, eval = F}
 install.packages("devtools")
 
-# on Windows, you might need to run this in case devtools does not find Rtools 3.5 (only works for older versions of devtools though):
-library(devtools)
-assignInNamespace("version_info", c(devtools:::version_info, list("3.5" = list(version_min = "3.3.0", version_max = "99.99.99", path = "bin"))), "devtools")
-find_rtools() # is TRUE now
+# # on Windows, you might need to run this in case devtools does not find Rtools 3.5 (only works for older versions of devtools though):
+# library(devtools)
+# assignInNamespace("version_info", c(devtools:::version_info, list("3.5" = list(version_min = "3.3.0", version_max = "99.99.99", path = "bin"))), "devtools")
+# find_rtools() # is TRUE now
 ```
 
 ### Required packages
@@ -54,16 +54,16 @@ install.packages("mvoutlier") # mvoutlier 2.0.9, required by some functions from
 devtools::install_github("bwlewis/irlba") # irlba 2.3.3, optional. Make sure you use irlba > 2.3.1, older versions contain a bug that results in unreliable output!
 
 # from Bioconductor
-BiocManager::install("scater", version="3.11") # scater v. 1.16.2
-BiocManager::install("scran", version="3.11") # scran v. 1.16.0
+BiocManager::install("scater", version="3.13") # scater v. 1.16.2
+BiocManager::install("scran", version="3.13") # scran v. 1.16.0
 ```
 
 #### Genome annotation (human)
 ```{r, eval=F}
 # ensembldb 2.12.1 and EnsDb.Hsapiens.v86 2.99.0
-BiocManager::install(c("ensembldb","EnsDb.Hsapiens.v86"), version="3.11")
+BiocManager::install(c("ensembldb","EnsDb.Hsapiens.v86"), version="3.13")
 # org.Hs.eg.db v. 3.11.4
-BiocManager::install("org.Hs.eg.db", version="3.11")
+BiocManager::install("org.Hs.eg.db", version="3.13")
 ```
 
 #### Genome annotation (mouse)
@@ -76,7 +76,7 @@ biocLite("org.Mm.eg.db")
 
 #### Feature selection
 ```{r,eval = F}
-BiocManager::install("M3Drop", version="3.11")
+BiocManager::install("M3Drop", version="3.13")
 ```
 
 #### Clustering
@@ -88,7 +88,7 @@ install.packages("dbscan") # DBSCAN v. 1.1-1
 install.packages(c("mclust","mvtnorm")) # mclust v. 5.4 and mvtnorm 1.0.6
 install.packages("dynamicTreeCut") # dynamicTreeCut v. 1.63-1 
 
-BiocManager::install("SC3", version="3.11") # SC3 v. 1.4.2
+BiocManager::install("SC3", version="3.13") # SC3 v. 1.4.2
 install.packages("MCL") #MCL 1.0
 ```
 
@@ -105,7 +105,7 @@ This will install MCL to ~/local/bin/mcl.
 
 #### Differential expression analysis
 ```{r,eval = F}
-BiocManager::install("limma", version="3.11") # limma v. 3.32.5
+BiocManager::install("limma", version="3.13") # limma v. 3.32.5
 ```
 
 ### Troubleshooting: Maximum number of DLLS reached
@@ -315,7 +315,10 @@ Note that all filtering functions return logical vectors. It is therefore also p
 Instead of manual thresholding, we can use the `quickPerCellQC` funstion fram scater:
 
 ```{r}
-qc_stats = quickPerCellQC(sce, percent_subsets="subsets_MT_percent")
+# for R version 4.0
+# qc_stats = scater::quickPerCellQC(sce, percent_subsets="subsets_MT_percent")
+# for R version  4.1
+qc_stats = quickPerCellQC(sce, sub.fields=T, filter = F)
 
 table(qc_stats$discard, !sce$keep_manual)
 ```
@@ -532,7 +535,7 @@ ggmultiplot(p1,p2,p3,p4,cols=2)
 assignment = data.table(tsne1 = tsne_info$Y[,1], tsne2 = tsne_info$Y[,2],cell_type = 'T-cell')
 assignment[tsne1 < -10 ,cell_type:='Monocyte']
 assignment[tsne2 < -10 ,cell_type:='B-cell']
-assignment[tsne2 > 15 & tsne1 > 5,cell_type:='NK Cell']
+assignment[tsne2 > 10 & tsne1 > 12,cell_type:='NK Cell']
 
 sce_info$cell_type = assignment$cell_type
 
